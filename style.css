@@ -1,6 +1,7 @@
 /* Layout: playfield on top (hold | board | next) with room left below for the on-screen
    controls, which float above everything and can be moved. Menus cover the whole screen.
-   Dark by default, with a light theme picked from the sun/moon switch in the menu. */
+   Dark by default, with a light theme picked from the sun/moon switch in the menu.
+   Picking the Game Boy skin turns the whole app into the console (see the end of this file). */
 :root {
   color-scheme: dark;
   --bg: #121418;
@@ -15,6 +16,15 @@
   --scrim: rgba(12, 13, 16, .94);
   --bar: rgba(18, 20, 24, .96);
   --accent: #3f74e0;
+  /* On-screen controls follow the theme unless a skin repaints them */
+  --pad-key: var(--key);
+  --pad-key-hi: var(--key-hi);
+  --pad-ink: var(--muted);
+  --btn-key: var(--key);
+  --btn-key-hi: var(--key-hi);
+  --btn-ink: var(--fg);
+  --btn-label: var(--muted);
+  --pad-shadow: rgba(0, 0, 0, .45);
   --font-ui: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
   --font-num: "JetBrains Mono", ui-monospace, Menlo, monospace;
   /* Height kept free under the board for the controls' default spot */
@@ -33,6 +43,7 @@
   --dead: #a9afb9;
   --scrim: rgba(236, 238, 242, .95);
   --bar: rgba(255, 255, 255, .97);
+  --pad-shadow: rgba(0, 0, 0, .16);
 }
 html, body { height: 100%; margin: 0; }
 html, body, * {
@@ -61,9 +72,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .field {
   --c: 18px;
   flex: 1 1 0; min-height: 0;
-  display: flex; justify-content: center; align-items: flex-start;
-  gap: calc(var(--c) * .3);
+  display: flex; flex-direction: column; align-items: center;
 }
+.lcd { position: relative; display: flex; gap: calc(var(--c) * .3); }
 /* Side columns match the board's height, so everything left below it is free for controls */
 .side { width: calc(var(--c) * 1.9); height: calc(var(--c) * 20 + 1px); display: flex; flex-direction: column; gap: calc(var(--c) * .6); padding-top: 2px; }
 .label { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: var(--muted); line-height: 1; margin-bottom: 5px; }
@@ -75,6 +86,7 @@ canvas { display: block; }
 .stat .v.time { font-size: calc(var(--c) * .5); }
 .stat .label { margin-bottom: 4px; }
 .board-wrap { border: 1px solid var(--line); border-top: 0; background: var(--panel); }
+.brand { display: none; }
 
 .pause-btn {
   width: 30px; height: 30px; padding: 0; border-radius: 8px; cursor: pointer;
@@ -89,10 +101,19 @@ canvas { display: block; }
 .safe-probe { position: fixed; visibility: hidden; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
 .ctl { position: absolute; pointer-events: auto; touch-action: none; box-sizing: border-box; }
 
-.dpad { display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); }
+/* The d-pad rocks toward the pressed arrow, like a real one */
+.dpad {
+  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  filter: drop-shadow(0 4px 0 var(--pad-shadow));
+  transition: transform .09s ease-out;
+}
+.dpad[data-dir="left"] { transform: perspective(500px) rotateY(-10deg); }
+.dpad[data-dir="right"] { transform: perspective(500px) rotateY(10deg); }
+.dpad[data-dir="up"] { transform: perspective(500px) rotateX(10deg); }
+.dpad[data-dir="down"] { transform: perspective(500px) rotateX(-10deg); }
 /* Invisible margin around the pad that still counts as touching it */
 .dpad::before { content: ""; position: absolute; inset: -14px; }
-.arm { background: var(--key); position: relative; }
+.arm { background: var(--pad-key); position: relative; transition: background-color .09s; }
 .arm.up { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
 .arm.left { grid-area: 2 / 1; border-radius: 8px 0 0 8px; }
 .arm.mid { grid-area: 2 / 2; }
@@ -102,22 +123,24 @@ canvas { display: block; }
   content: ""; position: absolute; left: 50%; top: 50%;
   border: 9px solid transparent; transform: translate(-50%, -50%);
 }
-.arm.up::after { border-bottom-color: var(--muted); margin-top: -5px; }
-.arm.down::after { border-top-color: var(--muted); margin-top: 5px; }
-.arm.left::after { border-right-color: var(--muted); margin-left: -5px; }
-.arm.right::after { border-left-color: var(--muted); margin-left: 5px; }
+.arm.up::after { border-bottom-color: var(--pad-ink); margin-top: -5px; }
+.arm.down::after { border-top-color: var(--pad-ink); margin-top: 5px; }
+.arm.left::after { border-right-color: var(--pad-ink); margin-left: -5px; }
+.arm.right::after { border-left-color: var(--pad-ink); margin-left: 5px; }
 .dpad[data-dir="up"] .arm.up, .dpad[data-dir="down"] .arm.down,
-.dpad[data-dir="left"] .arm.left, .dpad[data-dir="right"] .arm.right { background: var(--key-hi); }
+.dpad[data-dir="left"] .arm.left, .dpad[data-dir="right"] .arm.right { background: var(--pad-key-hi); }
 
-/* Round A and B, as on a Game Boy */
+/* Round A and B, as on a Game Boy; they sink when pressed */
 .btn {
-  border: 1px solid var(--key-hi); border-radius: 50%; padding: 0; cursor: pointer;
-  background: var(--key); color: var(--fg);
+  border: 1px solid var(--btn-key-hi); border-radius: 50%; padding: 0; cursor: pointer;
+  background: var(--btn-key); color: var(--btn-ink);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   font-size: calc(var(--u) * .36); font-weight: 700; line-height: 1;
+  box-shadow: 0 4px 0 var(--pad-shadow);
+  transition: transform .09s ease-out, box-shadow .09s ease-out, background-color .09s;
 }
-.btn.pressed { background: var(--key-hi); }
-.btn small { font-size: 9px; letter-spacing: .12em; color: var(--muted); }
+.btn.pressed { background: var(--btn-key-hi); transform: translateY(3px) scale(.97); box-shadow: 0 1px 0 var(--pad-shadow); }
+.btn small { font-size: 9px; letter-spacing: .12em; color: var(--btn-label); }
 
 .editing .ctl { outline: 2px dashed var(--muted); outline-offset: 5px; }
 .editing .ctl.sel { outline: 2px solid var(--accent); }
@@ -144,8 +167,9 @@ canvas { display: block; }
   padding: 15px 16px; border-radius: 12px; cursor: pointer;
   background: var(--key); border: 1px solid var(--key-hi);
   font-size: 17px; font-weight: 700; letter-spacing: .06em; line-height: 1; text-align: left;
+  transition: background-color .12s, transform .12s;
 }
-.row:active { background: var(--key-hi); }
+.row:active { background: var(--key-hi); transform: scale(.985); }
 .row.primary { justify-content: center; background: var(--accent); border-color: var(--accent); color: #fff; }
 .row.primary:active { filter: brightness(.88); }
 .row .rec { font: 500 14px/1 var(--font-num); color: var(--muted); letter-spacing: 0; }
@@ -167,6 +191,7 @@ canvas { display: block; }
 .theme button {
   width: 34px; height: 30px; padding: 0; border: 0; border-radius: 999px; cursor: pointer;
   background: none; color: var(--muted); display: flex; align-items: center; justify-content: center;
+  transition: background-color .15s, color .15s;
 }
 .theme button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .theme svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -175,7 +200,7 @@ canvas { display: block; }
 .setting-head { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 700; letter-spacing: .06em; }
 .toggle {
   width: 52px; height: 30px; padding: 0; border-radius: 999px; cursor: pointer; position: relative;
-  border: 0; background: var(--key-hi);
+  border: 0; background: var(--key-hi); transition: background-color .15s;
 }
 .toggle::after {
   content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
@@ -207,6 +232,83 @@ canvas { display: block; }
   flex: 1; height: 40px; padding: 0 12px; border-radius: 10px; cursor: pointer;
   background: var(--key); border: 1px solid var(--key-hi);
   font-size: 15px; font-weight: 700; letter-spacing: .06em;
+  transition: background-color .12s;
 }
 .key:active { background: var(--key-hi); }
 .key.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ---------- Game Boy easter egg (the Game Boy skin) ----------
+   The phone becomes the console: plastic body, bezel with a power light, pea-green LCD,
+   black d-pad and magenta A/B. A black console in dark mode, a white one in light mode. */
+:root[data-skin="gameboy"] {
+  --panel: #9bbc0f;
+  --grid: #93b40e;
+  --dead: #306230;
+  --accent: #a3245a;
+  --pad-key: #222226;
+  --pad-key-hi: #3a3a40;
+  --pad-ink: #6d6d76;
+  --btn-key: #a3245a;
+  --btn-key-hi: #7d1a45;
+  --btn-ink: #f6e3ec;
+  --btn-label: rgba(246, 227, 236, .7);
+}
+:root[data-skin="gameboy"][data-theme="dark"] {
+  --bg: #19191c;
+  --key: #27272c;
+  --key-hi: #36363c;
+  --line: #36363c;
+  --scrim: rgba(25, 25, 28, .95);
+  --bar: rgba(32, 32, 36, .97);
+  --bezel: #2e2f37;
+  --bezel-ink: #8c8e9c;
+  --brand: #6c6e7c;
+}
+:root[data-skin="gameboy"][data-theme="light"] {
+  --bg: #e7e4dd;
+  --key: #d8d4cc;
+  --key-hi: #c7c2b9;
+  --line: #bdb8ae;
+  --scrim: rgba(231, 228, 221, .95);
+  --bar: rgba(242, 240, 235, .97);
+  --bezel: #5d6075;
+  --bezel-ink: #c9cbe0;
+  --brand: #2c2f6e;
+}
+/* The playfield is the LCD: everything inside it is drawn in its greens */
+[data-skin="gameboy"] .lcd {
+  --fg: #0f380f;
+  --muted: #306230;
+  --line: #306230;
+  --key: #8bac0f;
+  --key-hi: #306230;
+  background: var(--panel);
+  border: 14px solid var(--bezel); border-top-width: 24px;
+  border-radius: 10px 10px 40px 10px;
+  padding: 6px;
+  box-shadow: inset 0 0 0 1px rgba(15, 56, 15, .25);
+}
+/* Power light on the left of the bezel */
+[data-skin="gameboy"] .lcd::before {
+  content: ""; position: absolute; left: -10px; top: 46px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #e2342f; box-shadow: 0 0 6px #e2342f;
+}
+/* Printed label across the top of the bezel */
+[data-skin="gameboy"] .lcd::after {
+  content: "MATRIZ DE PONTOS COM SOM ESTÉREO";
+  position: absolute; left: 0; right: 0; top: -17px;
+  font: italic 700 8px/1 var(--font-ui); letter-spacing: .14em; text-align: center;
+  color: var(--bezel-ink);
+}
+[data-skin="gameboy"] .brand {
+  display: block; margin-top: 10px;
+  font: italic 800 22px/1 var(--font-ui); letter-spacing: .04em; color: var(--brand);
+}
+[data-skin="gameboy"] .brand small { font-size: 13px; font-weight: 700; letter-spacing: .12em; margin-left: 4px; }
+[data-skin="gameboy"] .screen h1 span { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+  .dpad[data-dir] { transform: none; }
+}

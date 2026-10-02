@@ -5,7 +5,7 @@ import { SKINS, drawBlock } from './skins.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 15;
+const VERSION = 16;
 
 // ---------- rules ----------
 const COLS = 10, ROWS = 22, HID = 2, VIS = ROWS - HID, PREVIEW = 5;
@@ -242,9 +242,12 @@ function setLook(patch) {
   Object.assign(look, patch);
   save('7etris-look', look);
   applyLook();
+  resize(); // the Game Boy skin frames the playfield, which changes the board's size
 }
+// The Game Boy skin restyles the whole app (console body, green LCD) through data-skin
 function applyLook() {
   document.documentElement.dataset.theme = look.theme;
+  document.documentElement.dataset.skin = look.skin;
   readPalette();
   document.querySelector('meta[name="theme-color"]').content = css().getPropertyValue('--bg').trim();
   document.querySelectorAll('[data-theme-set]').forEach(b => b.setAttribute('aria-pressed', b.dataset.themeSet === look.theme));
@@ -334,8 +337,12 @@ function sizeCanvas(cv, w, h) {
   return c;
 }
 function resize() {
-  const f = $('field');
-  cell = Math.max(10, Math.floor(Math.min((f.clientHeight - 1) / VIS, (f.clientWidth - 4) / 14.4)));
+  const f = $('field'), lcd = getComputedStyle($('lcd')), brand = $('brand');
+  // Room taken by the LCD's frame and the name under it (only the Game Boy look has them)
+  const chrome = sides => sides.reduce((n, k) => n + parseFloat(lcd[`border${k}Width`]) + parseFloat(lcd[`padding${k}`]), 0);
+  const below = brand.offsetHeight && brand.offsetHeight + parseFloat(getComputedStyle(brand).marginTop);
+  const w = f.clientWidth - 4 - chrome(['Left', 'Right']), h = f.clientHeight - 1 - chrome(['Top', 'Bottom']) - below;
+  cell = Math.max(10, Math.floor(Math.min(h / VIS, w / 14.4)));
   f.style.setProperty('--c', cell + 'px');
   const sw = Math.round(cell * 1.9) - 2;
   bctx = sizeCanvas($('board'), cell * COLS, cell * VIS);

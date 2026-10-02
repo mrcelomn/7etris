@@ -76,20 +76,15 @@ export const SKINS = [
   { id: 'glossy', name: 'BRILHO', draw: glossy },
   { id: 'bevel', name: 'RELEVO', draw: bevel },
   { id: 'outline', name: 'CONTORNO', draw: outline },
-  { id: 'gameboy', name: 'GAME BOY', draw: gameboy, ghost: LCD[1] },
+  { id: 'gameboy', name: 'GAME BOY', draw: gameboy },
 ];
 const BY_ID = Object.fromEntries(SKINS.map(k => [k.id, k]));
 
-// look: 'solid' | 'ghost' (landing preview) | 'dead' (board after a loss, drawn in `dead`)
+// look: 'solid' | 'ghost' (landing preview, the same skin see-through) | 'dead' (board after a loss, drawn in `dead`)
 export function drawBlock(ctx, skinId, x, y, s, t, look = 'solid', dead = '#4a4f59') {
   const skin = BY_ID[skinId] || BY_ID.classic;
-  if (look === 'ghost') {
-    ctx.globalAlpha = 0.28;
-    ctx.fillStyle = skin.ghost || COLORS[t];
-    ctx.fillRect(x, y, s, s);
-    ctx.globalAlpha = 1;
-    return;
-  }
-  if (look === 'dead') skin.draw(ctx, x, y, s, dead, null);
-  else skin.draw(ctx, x, y, s, COLORS[t], t);
+  if (look === 'dead') return skin.draw(ctx, x, y, s, dead, null);
+  if (look === 'ghost') ctx.globalAlpha = 0.3;
+  skin.draw(ctx, x, y, s, COLORS[t], t);
+  ctx.globalAlpha = 1;
 }
