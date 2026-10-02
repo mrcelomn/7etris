@@ -1,42 +1,81 @@
 // On-screen controls. The d-pad and the A/B buttons float above the game; where they sit and
-// how big they are is a saved layout the player can edit (drag to move, − / + to resize).
+// how big they are is a saved layout the player edits by dragging (move) and pinching (size).
+// Controls never cover the board, hold, next queue, stats, pause button or each other.
 
-// Centre of each control: x as a fraction of the game's width, y of the screen's height
+// Centre of each control: x as a fraction of the game's width, y of the screen's height.
+// Game Boy arrangement: d-pad on the left, B low and A high on the right.
 export const DEFAULT_LAYOUT = {
-  dpad: { x: 0.28, y: 0.84, s: 1 },
-  a: { x: 0.75, y: 0.84, s: 1 },
-  b: { x: 0.91, y: 0.68, s: 1 },
+  dpad: { x: 0.27, y: 0.81, s: 1 },
+  b: { x: 0.62, y: 0.855, s: 1 },
+  a: { x: 0.83, y: 0.77, s: 1 },
 };
-// Width and height at 100%, as a fraction of the game's width
-const BASE = { dpad: [0.44, 0.44], a: [0.35, 0.455], b: [0.125, 0.205] };
-const MIN_SCALE = 0.6, MAX_SCALE = 1.8;
+// Width and height at scale 1, as a fraction of the game's width
+const BASE = { dpad: [0.44, 0.44], a: [0.21, 0.21], b: [0.21, 0.21] };
+const MIN_SCALE = 0.6, MAX_SCALE = 1.8, GAP = 6;
+const OBSTACLES = '.board-wrap, .slot, .stats, .pause-btn';
+const NUDGES = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]];
 
 const $ = id => document.getElementById(id);
 const app = document.querySelector('.app');
 const els = { dpad: $('dpad'), a: $('btnA'), b: $('btnB') };
 const clone = l => JSON.parse(JSON.stringify(l));
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
-let layout, game, editing = false, selected = 'dpad', drag = null, onDone;
+let layout, game, editing = false, selected = 'dpad', onDone;
 
 export function initPad(handlers, saved) {
   game = handlers;
   layout = clone(saved);
-  place();
-  addEventListener('resize', place);
 }
 
-// Positions every control, keeping it fully on screen
-function place() {
-  const a = app.getBoundingClientRect(), H = innerHeight;
+// ---------- placement ----------
+// Where control `id` would sit with position/scale `p`, kept on screen and clear of the
+// status bar and home indicator
+function rectFor(id, p) {
+  const a = app.getBoundingClientRect(), [fw, fh] = BASE[id];
+  const w = fw * a.width * p.s, h = fh * a.width * p.s;
+  const safe = getComputedStyle($('safeProbe'));
+  return {
+    left: clamp(a.left + p.x * a.width - w / 2, a.left, a.right - w),
+    top: clamp(p.y * innerHeight - h / 2, parseFloat(safe.paddingTop), innerHeight - parseFloat(safe.paddingBottom) - h),
+    w, h,
+  };
+}
+const overlaps = (r, o) => r.left < o.right + GAP && r.left + r.w > o.left - GAP && r.top < o.bottom + GAP && r.top + r.h > o.top - GAP;
+function fits(id, r) {
+  for (const el of document.querySelectorAll(OBSTACLES)) if (overlaps(r, el.getBoundingClientRect())) return false;
+  for (const k in els) if (k !== id && overlaps(r, els[k].getBoundingClientRect())) return false;
+  return true;
+}
+function apply(id, r, s) {
+  const a = app.getBoundingClientRect(), p = layout[id];
+  p.x = (r.left + r.w / 2 - a.left) / a.width;
+  p.y = (r.top + r.h / 2) / innerHeight;
+  p.s = s;
+  Object.assign(els[id].style, { left: r.left + 'px', top: r.top + 'px', width: r.w + 'px', height: r.h + 'px' });
+  els[id].style.setProperty('--u', r.w + 'px');
+}
+function tryPlace(id, p) {
+  const r = rectFor(id, p);
+  if (!fits(id, r)) return false;
+  apply(id, r, p.s);
+  return true;
+}
+
+// Lays out every control. One that no longer fits (another screen size, the board grew)
+// moves to the nearest free spot.
+export function placePad() {
+  const a = app.getBoundingClientRect();
   for (const id in els) {
-    const p = layout[id], [fw, fh] = BASE[id];
-    const w = fw * a.width * p.s, h = fh * a.width * p.s;
-    const left = Math.min(Math.max(a.left + p.x * a.width - w / 2, a.left), a.right - w);
-    const top = Math.min(Math.max(p.y * H - h / 2, 0), H - h);
-    p.x = (left + w / 2 - a.left) / a.width;
-    p.y = (top + h / 2) / H;
-    Object.assign(els[id].style, { left: left + 'px', top: top + 'px', width: w + 'px', height: h + 'px' });
-    els[id].style.setProperty('--u', w + 'px');
+    const p = layout[id];
+    let r = rectFor(id, p);
+    search: for (let d = 8; !fits(id, r) && d < innerHeight; d += 8) {
+      for (const [dx, dy] of NUDGES) {
+        const c = rectFor(id, { ...p, x: p.x + (dx * d) / a.width, y: p.y + (dy * d) / innerHeight });
+        if (fits(id, c)) { r = c; break search; }
+      }
+    }
+    apply(id, r, p.s);
   }
 }
 
@@ -62,7 +101,7 @@ function setDir(d) {
 }
 dpad.addEventListener('pointerdown', e => {
   e.preventDefault();
-  if (editing) return startDrag(e, 'dpad');
+  if (editing) return;
   dpPointer = e.pointerId;
   try { dpad.setPointerCapture(e.pointerId); } catch (_) {}
   setDir(dirFrom(e));
@@ -76,7 +115,7 @@ for (const id of ['a', 'b']) {
   const b = els[id];
   b.addEventListener('pointerdown', e => {
     e.preventDefault();
-    if (editing) return startDrag(e, id);
+    if (editing) return;
     try { b.setPointerCapture(e.pointerId); } catch (_) {}
     b.classList.add('pressed');
     game.press(id);
@@ -97,36 +136,60 @@ export function editPad(done) {
 function select(id) {
   selected = id;
   for (const k in els) els[k].classList.toggle('sel', editing && k === id);
-  $('padSize').textContent = Math.round(layout[id].s * 100) + '%';
 }
 
-function startDrag(e, id) {
-  select(id);
-  const r = els[id].getBoundingClientRect();
-  drag = { id, pointer: e.pointerId, ox: e.clientX - (r.left + r.width / 2), oy: e.clientY - (r.top + r.height / 2) };
-}
+// One finger on a control drags it; a second finger anywhere turns it into a pinch that
+// resizes the selected control.
+const touches = new Map();
+let drag = null, pinch = null;
+const spread = () => { const [p, q] = [...touches.values()]; return Math.hypot(p.x - q.x, p.y - q.y) || 1; };
+
+addEventListener('pointerdown', e => {
+  if (!editing || e.target.closest('.ui')) return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const ctl = e.target.closest('.ctl');
+  if (touches.size === 1 && ctl) {
+    select(ctl.dataset.ctl);
+    const r = ctl.getBoundingClientRect();
+    drag = { pointer: e.pointerId, ox: e.clientX - (r.left + r.width / 2), oy: e.clientY - (r.top + r.height / 2) };
+  } else if (touches.size === 2) {
+    drag = null;
+    pinch = { d0: spread(), s0: layout[selected].s };
+  }
+}, true);
+
 addEventListener('pointermove', e => {
-  if (!drag || e.pointerId !== drag.pointer) return;
-  const a = app.getBoundingClientRect();
-  layout[drag.id].x = (e.clientX - drag.ox - a.left) / a.width;
-  layout[drag.id].y = (e.clientY - drag.oy) / innerHeight;
-  place();
+  if (!editing || !touches.has(e.pointerId)) return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const p = layout[selected];
+  if (pinch) {
+    tryPlace(selected, { ...p, s: clamp((pinch.s0 * spread()) / pinch.d0, MIN_SCALE, MAX_SCALE) });
+  } else if (drag && e.pointerId === drag.pointer) {
+    const a = app.getBoundingClientRect();
+    const x = (e.clientX - drag.ox - a.left) / a.width, y = (e.clientY - drag.oy) / innerHeight;
+    // Slide along whichever axis is still free when the full move would hit something
+    tryPlace(selected, { ...p, x, y }) || tryPlace(selected, { ...p, x }) || tryPlace(selected, { ...p, y });
+  }
 });
+
 ['pointerup', 'pointercancel'].forEach(t => addEventListener(t, e => {
-  if (drag && e.pointerId === drag.pointer) drag = null;
+  touches.delete(e.pointerId);
+  if (touches.size < 2) pinch = null;
+  if (drag && drag.pointer === e.pointerId) drag = null;
 }));
 
-function resizeSelected(step) {
+// Mouse wheel resizes too, for editing on a computer
+addEventListener('wheel', e => {
+  if (!editing) return;
+  e.preventDefault();
   const p = layout[selected];
-  p.s = Math.round(Math.min(MAX_SCALE, Math.max(MIN_SCALE, p.s + step)) * 10) / 10;
-  place();
-  select(selected);
-}
-$('padSmaller').addEventListener('click', () => resizeSelected(-0.1));
-$('padBigger').addEventListener('click', () => resizeSelected(0.1));
-$('padReset').addEventListener('click', () => { layout = clone(DEFAULT_LAYOUT); place(); select(selected); });
+  tryPlace(selected, { ...p, s: clamp(p.s - Math.sign(e.deltaY) * 0.05, MIN_SCALE, MAX_SCALE) });
+}, { passive: false });
+
+$('padReset').addEventListener('click', () => { layout = clone(DEFAULT_LAYOUT); placePad(); });
 $('padDone').addEventListener('click', () => {
   editing = false;
+  touches.clear(); drag = pinch = null;
   document.body.classList.remove('editing');
   $('editbar').hidden = true;
   select(selected);

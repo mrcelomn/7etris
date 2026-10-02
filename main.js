@@ -1,10 +1,11 @@
 import * as audio from './audio.js';
-import { initPad, editPad, DEFAULT_LAYOUT } from './pad.js';
+import { initPad, placePad, editPad, DEFAULT_LAYOUT } from './pad.js';
+import { SKINS, drawBlock } from './skins.js';
 
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 14;
+const VERSION = 15;
 
 // ---------- rules ----------
 const COLS = 10, ROWS = 22, HID = 2, VIS = ROWS - HID, PREVIEW = 5;
@@ -17,7 +18,6 @@ const SHAPES = {
   J: [[1,0,0],[1,1,1],[0,0,0]],
   L: [[0,0,1],[1,1,1],[0,0,0]],
 };
-const COLORS = { I: '#0f9bd7', O: '#e39f02', T: '#af298a', S: '#59b101', Z: '#d70f37', J: '#2141c6', L: '#e35b02' };
 // SRS clockwise wall kicks, indexed by the rotation state we leave (y is flipped: + is down)
 const KICKS = [
   [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
@@ -31,7 +31,8 @@ const KICKS_I = [
   [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
   [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
 ];
-const DAS = 160, ARR = 35, SOFT = 25, LOCK = 500, MAX_RESETS = 15;
+// Side moves: first repeat after DAS ms, then one cell every ARR ms while held
+const DAS = 130, ARR = 22, SOFT = 25, LOCK = 500, MAX_RESETS = 15;
 
 // ---------- saved data ----------
 function load(key, fallback) {
@@ -42,6 +43,7 @@ function save(key, value) {
 }
 const records = load('7etris-records', {}); // best marathon time in ms, keyed by line goal
 const sound = load('7etris-audio', { music: true, musicVol: 60, sfx: true, sfxVol: 80 });
+const look = load('7etris-look', { skin: 'classic', theme: 'dark' });
 audio.configure(sound);
 
 // ---------- game state ----------
@@ -128,7 +130,7 @@ function lock(hard = false) {
 }
 
 // ---------- flow ----------
-const SCREENS = ['menu', 'soundScr', 'pauseScr', 'result'];
+const SCREENS = ['menu', 'soundScr', 'skinScr', 'pauseScr', 'result'];
 function show(id) { SCREENS.forEach(s => { $(s).hidden = s !== id; }); }
 const on = (id, fn) => $(id).addEventListener('click', fn);
 
@@ -200,6 +202,11 @@ function openMenu() {
 }
 
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
+on('marathonBtn', () => {
+  const open = $('marathonList').hidden;
+  $('marathonList').hidden = !open;
+  $('marathonBtn').setAttribute('aria-expanded', open);
+});
 on('pauseBtn', pause);
 on('resume', resume);
 on('restart', () => startGame(mode));
@@ -230,6 +237,39 @@ $('musicVol').addEventListener('input', e => setSound({ musicVol: +e.target.valu
 $('sfxVol').addEventListener('input', e => setSound({ sfxVol: +e.target.value }));
 $('sfxVol').addEventListener('change', () => audio.sfx('lock'));
 
+// ---------- look: skins and light/dark ----------
+function setLook(patch) {
+  Object.assign(look, patch);
+  save('7etris-look', look);
+  applyLook();
+}
+function applyLook() {
+  document.documentElement.dataset.theme = look.theme;
+  readPalette();
+  document.querySelector('meta[name="theme-color"]').content = css().getPropertyValue('--bg').trim();
+  document.querySelectorAll('[data-theme-set]').forEach(b => b.setAttribute('aria-pressed', b.dataset.themeSet === look.theme));
+  document.querySelectorAll('[data-skin]').forEach(b => b.classList.toggle('on', b.dataset.skin === look.skin));
+  drawSide();
+}
+document.querySelectorAll('[data-theme-set]').forEach(b => b.addEventListener('click', () => setLook({ theme: b.dataset.themeSet })));
+
+// One row per skin, each with a strip of sample blocks drawn in that skin
+const SAMPLE = ['T', 'S', 'L', 'I', 'O'];
+for (const skin of SKINS) {
+  const b = document.createElement('button');
+  b.className = 'row skin';
+  b.dataset.skin = skin.id;
+  b.textContent = skin.name;
+  const cv = document.createElement('canvas');
+  b.append(cv);
+  $('skinList').append(b);
+  const ctx = sizeCanvas(cv, SAMPLE.length * 20, 20);
+  SAMPLE.forEach((t, i) => drawBlock(ctx, skin.id, i * 20, 0, 20, t));
+  b.addEventListener('click', () => setLook({ skin: skin.id }));
+}
+on('openSkins', () => show('skinScr'));
+on('skinBack', () => show('menu'));
+
 // ---------- controls ----------
 const held = {};
 // Only the auto-repeating directions track "held"; A, B and hard drop act on every press,
@@ -248,11 +288,13 @@ function press(k) {
 }
 function release(k) { delete held[k]; }
 
-initPad({ press, release }, load('7etris-pad', DEFAULT_LAYOUT));
+// v15 changed the default controls back to the Game Boy layout; drop layouts saved for the old shapes
+try { localStorage.removeItem('7etris-pad'); } catch (_) {}
+initPad({ press, release }, load('7etris-pad-2', DEFAULT_LAYOUT));
 on('openPad', () => {
   state = 'edit';
   show(null);
-  editPad(layout => { save('7etris-pad', layout); openMenu(); });
+  editPad(layout => { save('7etris-pad-2', layout); openMenu(); });
 });
 
 const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'up', ' ': 'up', x: 'a', X: 'a', c: 'b', C: 'b', Shift: 'b' };
@@ -275,9 +317,13 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 ['touchend', 'pointerup', 'keydown'].forEach(t => addEventListener(t, audio.unlock));
 
 // ---------- drawing ----------
-const css = getComputedStyle(document.documentElement);
-const PANEL = css.getPropertyValue('--panel').trim(), GRID = css.getPropertyValue('--grid').trim();
-const DEAD = '#4a4f59';
+const css = () => getComputedStyle(document.documentElement);
+// Canvas colors come from the current theme's CSS tokens
+let PANEL, GRID, DEAD;
+function readPalette() {
+  const s = css(), v = name => s.getPropertyValue(name).trim();
+  PANEL = v('--panel'); GRID = v('--grid'); DEAD = v('--dead');
+}
 let cell = 18, bctx, hctx, nctx;
 
 function sizeCanvas(cv, w, h) {
@@ -296,18 +342,10 @@ function resize() {
   hctx = sizeCanvas($('hold'), sw, Math.round(cell * 1.5));
   nctx = sizeCanvas($('next'), sw, Math.round(cell * 1.5) * PREVIEW);
   drawSide();
+  placePad();
 }
 
-function block(ctx, x, y, s, color, alpha = 1) {
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = color;
-  ctx.fillRect(x, y, s, s);
-  if (alpha === 1) {
-    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x, y, s, Math.max(2, s * 0.14));
-    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(x, y + s - Math.max(2, s * 0.14), s, Math.max(2, s * 0.14));
-  }
-  ctx.globalAlpha = 1;
-}
+const block = (ctx, x, y, s, t, kind) => drawBlock(ctx, look.skin, x, y, s, t, kind, DEAD);
 
 function drawBoard() {
   const c = cell, ctx = bctx;
@@ -317,29 +355,29 @@ function drawBoard() {
   for (let y = 1; y < VIS; y++) ctx.fillRect(0, y * c, c * COLS, 1);
   for (let y = HID; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     const t = board[y][x];
-    if (t) block(ctx, x * c, (y - HID) * c, c, state === 'done' ? DEAD : COLORS[t]);
+    if (t) block(ctx, x * c, (y - HID) * c, c, t, state === 'done' ? 'dead' : 'solid');
   }
   if (!cur) return;
   const gy = ghostY();
-  cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && gy + y >= HID) block(ctx, (cur.x + x) * c, (gy + y - HID) * c, c, COLORS[cur.t], 0.28); }));
-  cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && cur.y + y >= HID) block(ctx, (cur.x + x) * c, (cur.y + y - HID) * c, c, COLORS[cur.t]); }));
+  cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && gy + y >= HID) block(ctx, (cur.x + x) * c, (gy + y - HID) * c, c, cur.t, 'ghost'); }));
+  cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && cur.y + y >= HID) block(ctx, (cur.x + x) * c, (cur.y + y - HID) * c, c, cur.t, 'solid'); }));
 }
 
-function mini(ctx, t, cx, cy, s, color) {
+function mini(ctx, t, cx, cy, s, kind) {
   const m = SHAPES[t];
   const rows = m.map((r, y) => r.some(Boolean) ? y : -1).filter(y => y >= 0);
   const cols = m[0].map((_, x) => m.some(r => r[x]) ? x : -1).filter(x => x >= 0);
   const ox = Math.round(cx - cols.length * s / 2), oy = Math.round(cy - rows.length * s / 2);
-  rows.forEach((y, ry) => cols.forEach((x, rx) => { if (m[y][x]) block(ctx, ox + rx * s, oy + ry * s, s, color); }));
+  rows.forEach((y, ry) => cols.forEach((x, rx) => { if (m[y][x]) block(ctx, ox + rx * s, oy + ry * s, s, t, kind); }));
 }
 function drawSide() {
   if (!hctx || !board) return;
   const w = parseFloat($('hold').style.width), h = parseFloat($('hold').style.height), s = Math.max(4, Math.floor(cell * 0.42));
   hctx.fillStyle = PANEL; hctx.fillRect(0, 0, w, h);
-  if (hold) mini(hctx, hold, w / 2, h / 2, s, canHold ? COLORS[hold] : DEAD);
+  if (hold) mini(hctx, hold, w / 2, h / 2, s, canHold ? 'solid' : 'dead');
   const nh = parseFloat($('next').style.height);
   nctx.fillStyle = PANEL; nctx.fillRect(0, 0, w, nh);
-  queue.slice(0, PREVIEW).forEach((t, i) => mini(nctx, t, w / 2, h * i + h / 2, s, COLORS[t]));
+  queue.slice(0, PREVIEW).forEach((t, i) => mini(nctx, t, w / 2, h * i + h / 2, s, 'solid'));
 }
 
 // m:ss with `dp` decimals of a second
@@ -385,6 +423,7 @@ function frame(now) {
 }
 
 $('ver').textContent = 'v' + VERSION;
+applyLook();
 resize();
 openMenu();
 requestAnimationFrame(t => { last = t; frame(t); });

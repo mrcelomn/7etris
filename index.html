@@ -36,44 +36,59 @@
   </div>
 </div>
 
+<div class="safe-probe" id="safeProbe"></div>
 <div class="pad">
-  <div class="ctl dpad" id="dpad" role="group" aria-label="Direcional">
+  <div class="ctl dpad" id="dpad" data-ctl="dpad" role="group" aria-label="Direcional">
     <div class="arm up"></div><div class="arm left"></div><div class="arm mid"></div><div class="arm right"></div><div class="arm down"></div>
   </div>
-  <button class="ctl btn a" id="btnA" aria-label="A: girar">A<small>GIRAR</small></button>
-  <button class="ctl btn b" id="btnB" aria-label="B: guardar peça">B<small>HOLD</small></button>
+  <button class="ctl btn" id="btnB" data-ctl="b" aria-label="B: guardar peça">B<small>HOLD</small></button>
+  <button class="ctl btn" id="btnA" data-ctl="a" aria-label="A: girar">A<small>GIRAR</small></button>
 </div>
 
 <div class="ui editbar" id="editbar" hidden>
-  <p>Toque num controle e arraste para mover</p>
+  <p>Arraste para mover · pinça para mudar o tamanho</p>
   <div class="edit-row">
-    <button class="key" id="padSmaller" aria-label="Diminuir">−</button>
-    <span class="size" id="padSize">100%</span>
-    <button class="key" id="padBigger" aria-label="Aumentar">+</button>
-    <button class="key wide" id="padReset">PADRÃO</button>
-    <button class="key wide primary" id="padDone">PRONTO</button>
+    <button class="key" id="padReset">PADRÃO</button>
+    <button class="key primary" id="padDone">PRONTO</button>
   </div>
 </div>
 
 <div class="ui screen" id="menu" hidden>
+  <div class="theme" role="group" aria-label="Tema">
+    <button data-theme-set="light" aria-label="Modo claro">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
+    </button>
+    <button data-theme-set="dark" aria-label="Modo escuro">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+    </button>
+  </div>
   <div class="panel">
     <h1><span>7</span>ETRIS</h1>
     <div class="group">
-      <div class="glabel">MARATONA · MENOR TEMPO</div>
-      <button class="row" data-mode="20">20 LINHAS<span class="rec" data-rec="20">—</span></button>
-      <button class="row" data-mode="40">40 LINHAS<span class="rec" data-rec="40">—</span></button>
-      <button class="row" data-mode="100">100 LINHAS<span class="rec" data-rec="100">—</span></button>
-    </div>
-    <div class="group">
-      <div class="glabel">SEM LIMITE</div>
-      <button class="row" data-mode="free">LIVRE<span class="rec">fica mais rápido</span></button>
+      <div class="glabel">JOGAR</div>
+      <button class="row" id="marathonBtn" aria-expanded="false">MARATONA<span class="chev" aria-hidden="true"></span></button>
+      <div class="cascade" id="marathonList" hidden>
+        <button class="row" data-mode="20">20 LINHAS<span class="rec" data-rec="20">—</span></button>
+        <button class="row" data-mode="40">40 LINHAS<span class="rec" data-rec="40">—</span></button>
+        <button class="row" data-mode="100">100 LINHAS<span class="rec" data-rec="100">—</span></button>
+      </div>
+      <button class="row" data-mode="free">LIVRE</button>
     </div>
     <div class="group">
       <div class="glabel">AJUSTES</div>
-      <button class="row" id="openSound">ÁUDIO<span class="rec">›</span></button>
-      <button class="row" id="openPad">CONTROLES<span class="rec">›</span></button>
+      <button class="row" id="openSkins">SKINS<span class="chev side" aria-hidden="true"></span></button>
+      <button class="row" id="openSound">ÁUDIO<span class="chev side" aria-hidden="true"></span></button>
+      <button class="row" id="openPad">CONTROLES<span class="chev side" aria-hidden="true"></span></button>
     </div>
     <div class="ver" id="ver"></div>
+  </div>
+</div>
+
+<div class="ui screen" id="skinScr" hidden>
+  <div class="panel">
+    <h2>SKINS</h2>
+    <div class="group" id="skinList"></div>
+    <button class="row primary" id="skinBack">VOLTAR</button>
   </div>
 </div>
 
