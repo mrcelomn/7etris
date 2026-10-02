@@ -100,10 +100,13 @@ export function placePad() {
 // ---------- playing ----------
 const dpad = els.dpad;
 let dpDir = null, dpPointer = null;
-// Any touch on the pad (centre and corners included) picks the nearest arrow. While sliding,
-// a small centre zone keeps the current arrow so a wobbly thumb doesn't flicker.
-// Up is hard drop and can't be undone, so it needs a clearly upward touch.
+// A finger on an arm is that arm's arrow, wherever on the arm it lands. Elsewhere (the centre
+// square, the corners, the invisible margin) it picks the nearest arrow by angle; there a small
+// centre zone keeps the current arrow so a wobbly thumb doesn't flicker, and up (hard drop,
+// which can't be undone) needs a clearly upward touch.
 function dirFrom(e) {
+  const arm = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-arrow]');
+  if (arm && dpad.contains(arm)) return arm.dataset.arrow;
   const r = dpad.getBoundingClientRect();
   const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
   if (dpDir && Math.hypot(dx, dy) < r.width * 0.08) return dpDir;
