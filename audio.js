@@ -2,7 +2,7 @@
 // a traditional folk song) as chiptune, and short effects in the style of Jstris's.
 // iOS only lets audio start inside a tap, so main.js calls unlock() on every touch.
 
-let ctx = null, musicOut, sfxOut, noise, pulse25, pulse12;
+let ctx = null, musicOut, sfxOut, noise, pulse25, pulse12, pianoWave;
 let silentSince = 0; // when a tap first found the sound not running (0: it's fine)
 const opts = { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false, pack: 'classic' };
 
@@ -52,6 +52,9 @@ function build() {
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   pulse25 = pulseWave(0.25);
   pulse12 = pulseWave(0.125);
+  // A struck string: strong fundamental, then fading overtones
+  const harmonics = [0, 1, 0.6, 0.35, 0.25, 0.15, 0.1, 0.06, 0.04];
+  pianoWave = ctx.createPeriodicWave(new Float32Array(harmonics.length), Float32Array.from(harmonics));
   applyVolumes();
   if (ctx.state !== 'running') ctx.resume().catch(() => {});
   nextAt = ctx.currentTime + 0.06; // a rebuilt clock starts at zero; music carries on from here
@@ -104,6 +107,27 @@ const comboHz = combo => {
 };
 const notes = (fs, step, dur, type, vol, t) => fs.forEach((f, i) => tone(sfxOut, f, t + i * step, dur, type, vol));
 
+// A piano-like note: instant attack, a quick drop, then a long fade, through a filter that
+// closes as the note dies (bright hammer strike, mellow tail)
+function piano(f, t, dur, vol) {
+  const o = ctx.createOscillator(), filter = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.setPeriodicWave(pianoWave);
+  o.frequency.setValueAtTime(f, t);
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(Math.min(f * 8, 9000), t);
+  filter.frequency.exponentialRampToValueAtTime(Math.max(f * 1.5, 400), t + dur);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(vol * 0.35, t + 0.09);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(filter);
+  filter.connect(g);
+  g.connect(sfxOut);
+  o.start(t);
+  o.stop(t + dur + 0.02);
+}
+const keys = (fs, step, dur, vol, t) => fs.forEach((f, i) => piano(f, t + i * step, dur, vol));
+
 const PACKS = {
   classic: {
     name: 'CLÁSSICO',
@@ -148,6 +172,17 @@ const PACKS = {
     clear: (t, f) => { tone(sfxOut, f, t, 0.12, 'triangle', 0.35); tone(sfxOut, f * 4, t, 0.04, 'sine', 0.08); },
     over: t => notes([300, 250, 200, 150], 0.12, 0.06, 'triangle', 0.4, t),
     win: t => notes([523, 659, 784, 1047, 1319], 0.07, 0.12, 'triangle', 0.32, t),
+  },
+  piano: {
+    name: 'PIANO',
+    move: t => piano(1568, t, 0.12, 0.05),
+    rotate: t => piano(1319, t, 0.2, 0.08),
+    hold: t => keys([523, 784], 0.07, 0.4, 0.12, t),
+    lock: t => piano(131, t, 0.35, 0.25),
+    drop: t => keys([65, 98, 131], 0, 0.6, 0.22, t),
+    clear: (t, f) => { piano(f, t, 0.9, 0.22); piano(f * 2, t, 0.6, 0.07); },
+    over: t => keys([440, 349, 294, 220, 147], 0.16, 1.2, 0.2, t),
+    win: t => { keys([523, 659, 784, 1047], 0.1, 1, 0.18, t); keys([262, 330, 392], 0, 1.6, 0.14, t + 0.4); },
   },
   space: {
     name: 'ESPACIAL',
