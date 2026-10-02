@@ -344,6 +344,74 @@ canvas { display: block; }
 }
 [data-skin="gameboy"] .brand small { font-size: 13px; font-weight: 700; letter-spacing: .12em; margin-left: 4px; }
 
+/* The menus turn into LCD screens too: pixel type, square corners, dark-green ink */
+:root[data-skin="gameboy"] { --lcd0: #0f380f; --lcd1: #306230; --lcd2: #8bac0f; --lcd3: #9bbc0f; }
+[data-skin="gameboy"] :is(.screen, .editbar) {
+  --fg: var(--lcd0); --muted: var(--lcd1); --key: var(--lcd2); --key-hi: var(--lcd0); --accent: var(--lcd0); --panel: var(--lcd3);
+  background: var(--lcd3) repeating-linear-gradient(0deg, rgba(15, 56, 15, .07) 0 1px, transparent 1px 3px);
+  color: var(--lcd0);
+  font-family: "Silkscreen", var(--font-ui);
+}
+[data-skin="gameboy"] .screen h1 { font-size: 40px; }
+[data-skin="gameboy"] .screen h1 span { color: var(--lcd1); }
+[data-skin="gameboy"] .screen h2 { font-size: 24px; }
+[data-skin="gameboy"] :is(.row, .key, .setting-head) { font-size: 14px; letter-spacing: .04em; }
+[data-skin="gameboy"] :is(.row .rec, .big, .ver) { font-family: "Silkscreen", var(--font-num); }
+[data-skin="gameboy"] .row .rec { font-size: 12px; }
+
+/* ---------- Obra Dinn (the Obra Dinn skin) ----------
+   Inspired by Return of the Obra Dinn's 1-bit look: ink on old paper (swapped in the dark
+   theme), dither textures, double-ruled frames, a terminal typeface, square everything, and
+   buttons that turn inside out when pressed. */
+:root[data-skin="obra"] {
+  color-scheme: light;
+  --ink: #1b1a17; --paper: #e3dcc6;
+  --bg: var(--paper); --panel: var(--paper); --grid: #d3cbb4; --line: var(--ink);
+  --fg: var(--ink); --muted: #5b574d; --key: var(--paper); --key-hi: #cfc7ae; --dead: #8d877a;
+  --scrim: rgba(227, 220, 198, .97); --bar: var(--paper); --accent: var(--ink);
+  --pad-key: var(--ink); --pad-key-hi: #5b574d; --pad-ink: var(--paper);
+  --btn-key: var(--ink); --btn-key-hi: #5b574d; --btn-ink: var(--paper); --btn-label: var(--paper);
+  --pad-shadow: transparent;
+  --font-ui: "VT323", ui-monospace, Menlo, monospace;
+  --font-num: "VT323", ui-monospace, Menlo, monospace;
+}
+:root[data-skin="obra"][data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #e3dcc6; --paper: #1b1a17;
+  --grid: #2e2c27; --muted: #b0a995; --key-hi: #2e2c27; --dead: #6e695d;
+  --scrim: rgba(27, 26, 23, .97); --pad-key-hi: #b0a995; --btn-key-hi: #b0a995;
+}
+[data-skin="obra"] body { background-image: radial-gradient(var(--grid) 1px, transparent 1.3px); background-size: 4px 4px; }
+[data-skin="obra"] .lcd { background: var(--paper); border: 3px solid var(--ink); outline: 1px solid var(--ink); outline-offset: 3px; padding: 5px; }
+[data-skin="obra"] .label { font-size: 14px; }
+[data-skin="obra"] .stat .v.time { font-size: calc(var(--c) * .62); }
+[data-skin="obra"] .screen h1 { font-size: 64px; }
+[data-skin="obra"] .screen h2 { font-size: 38px; }
+[data-skin="obra"] :is(.row, .key, .setting-head) { font-size: 23px; }
+[data-skin="obra"] :is(.glabel, .btn small) { font-size: 14px; }
+[data-skin="obra"] :is(.sub, .note, .editbar p, .row .rec) { font-size: 19px; }
+[data-skin="obra"] .big { font-size: 56px; }
+[data-skin="obra"] .ver { font-size: 15px; }
+
+/* Shared by both retro skins: square corners, ruled borders, pressed = inverted */
+:is([data-skin="gameboy"], [data-skin="obra"]) :is(.row, .setting, .key, .gear, .theme, .theme button, .toggle, .code-input, .pause-btn, .editbar, .arm) { border-radius: 0; }
+:is([data-skin="gameboy"], [data-skin="obra"]) .toggle::after { border-radius: 0; }
+:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row, .setting, .key, .gear, .code-input, .theme) {
+  border: 2px solid var(--fg); background: var(--key); color: var(--fg);
+}
+:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row:not(.static), .key, .gear):active,
+:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row.primary, .key.primary) {
+  background: var(--fg); color: var(--key); border-color: var(--fg); filter: none; transform: none;
+}
+:is([data-skin="gameboy"], [data-skin="obra"]) .row.skin.on { box-shadow: none; outline: 2px solid var(--fg); outline-offset: 2px; }
+:is([data-skin="gameboy"], [data-skin="obra"]) .toggle { border: 2px solid var(--fg); background: var(--key); }
+:is([data-skin="gameboy"], [data-skin="obra"]) .toggle::after { top: 3px; left: 3px; width: 20px; height: 20px; background: var(--muted); }
+:is([data-skin="gameboy"], [data-skin="obra"]) .toggle[aria-pressed="true"] { background: var(--fg); }
+:is([data-skin="gameboy"], [data-skin="obra"]) .toggle[aria-pressed="true"]::after { background: var(--key); }
+:is([data-skin="gameboy"], [data-skin="obra"]) .theme button[aria-pressed="true"] { background: var(--fg); color: var(--key); }
+:is([data-skin="gameboy"], [data-skin="obra"]) .sub.hl { color: var(--fg); }
+:is([data-skin="gameboy"], [data-skin="obra"]) .chev { border-color: var(--fg); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }

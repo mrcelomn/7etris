@@ -1,6 +1,6 @@
 import * as audio from './audio.js';
 import { initPad, placePad, editPad } from './pad.js';
-import { SKINS, drawBlock } from './skins.js';
+import { SKINS, drawBlock, setInk } from './skins.js';
 import { COLS, ROWS, HID, VIS, SHAPES, rotCW, newBoard, spawnX, bag, seeded, collides as hits, stamp, clearLines, exchange, solidRowsAt, addSolid, packBoard, unpackBoard } from './rules.js';
 import { Bot } from './ai.js';
 import { Duel, newCode } from './duel.js';
@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 37;
+const VERSION = 38;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -359,10 +359,12 @@ function setLook(patch) {
   applyLook();
   resize(); // the Game Boy skin frames the playfield, which changes the board's size
 }
-// The Game Boy skin restyles the whole app (console body, green LCD) through data-skin
+// The Game Boy and Obra Dinn skins restyle the whole app (see style.css) through data-skin
 function applyLook() {
   document.documentElement.dataset.theme = look.theme;
   document.documentElement.dataset.skin = look.skin;
+  // The two whole-app skins bring their own soundtrack
+  audio.setSong(look.skin === 'gameboy' || look.skin === 'obra' ? look.skin : 'modern');
   readPalette();
   document.querySelector('meta[name="theme-color"]').content = css().getPropertyValue('--bg').trim();
   document.querySelectorAll('[data-theme-set]').forEach(b => b.setAttribute('aria-pressed', b.dataset.themeSet === look.theme));
@@ -444,6 +446,7 @@ let PANEL, GRID, DEAD;
 function readPalette() {
   const s = css(), v = name => s.getPropertyValue(name).trim();
   PANEL = v('--panel'); GRID = v('--grid'); DEAD = v('--dead');
+  if (look.skin === 'obra') setInk(v('--ink'), v('--paper'));
 }
 let cell = 18, bctx, hctx, nctx, fctx;
 

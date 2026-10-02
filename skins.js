@@ -125,6 +125,49 @@ function jelly(ctx, x, y, s, c) {
   ctx.fill();
 }
 
+// Obra Dinn: 1-bit ink on paper, each piece told apart by its dither pattern, like the game's
+// old-Macintosh look. Patterns are drawn once per piece and size, then reused, because painting
+// them pixel by pixel every frame would be slow. Ink and paper follow the theme (see setInk).
+const DITHER = {
+  I: (x, y) => y % 2 === 0,
+  O: (x, y) => (x + y) % 2 === 0,
+  T: (x, y) => !(x % 2 === 0 && y % 2 === 0),
+  S: (x, y) => (x + y) % 3 === 0,
+  Z: (x, y) => (x - y + 99) % 3 === 0,
+  J: (x, y) => x % 2 === 0 && y % 2 === 0,
+  L: (x, y) => x % 2 === 0,
+  G: (x, y) => x % 3 === 0 || y % 3 === 0,
+  X: () => true,
+  dead: (x, y) => (x + y) % 4 === 0,
+};
+let ink = '#1b1a17', paper = '#e3dcc6';
+const tiles = new Map();
+export function setInk(i, p) {
+  if (i === ink && p === paper) return;
+  ink = i; paper = p;
+  tiles.clear();
+}
+function obra(ctx, x, y, s, c, t) {
+  const scale = ctx.getTransform().a, key = `${t || 'dead'}:${s}:${scale}`;
+  let tile = tiles.get(key);
+  if (!tile) {
+    const px = Math.round(s * scale), dot = Math.max(1, Math.round(px / 10)), pattern = DITHER[t || 'dead'];
+    tile = document.createElement('canvas');
+    tile.width = tile.height = px;
+    const g = tile.getContext('2d');
+    g.fillStyle = paper; g.fillRect(0, 0, px, px);
+    g.fillStyle = ink;
+    for (let gy = dot * 2; gy < px - dot * 2; gy += dot) for (let gx = dot * 2; gx < px - dot * 2; gx += dot) {
+      if (pattern(gx / dot, gy / dot)) g.fillRect(gx, gy, dot, dot);
+    }
+    g.lineWidth = dot;
+    g.strokeStyle = ink;
+    g.strokeRect(dot / 2, dot / 2, px - dot, px - dot);
+    tiles.set(key, tile);
+  }
+  ctx.drawImage(tile, x, y, s, s);
+}
+
 export const SKINS = [
   { id: 'classic', name: 'CLÁSSICA', draw: classic },
   { id: 'flat', name: 'PLANA', draw: flat },
@@ -137,6 +180,7 @@ export const SKINS = [
   { id: 'pastel', name: 'PASTEL', draw: pastel },
   { id: 'jelly', name: 'GELATINA', draw: jelly },
   { id: 'gameboy', name: 'GAME BOY', draw: gameboy },
+  { id: 'obra', name: 'OBRA DINN', draw: obra },
 ];
 const BY_ID = Object.fromEntries(SKINS.map(k => [k.id, k]));
 
