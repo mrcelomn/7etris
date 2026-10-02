@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 31;
+const VERSION = 32;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -126,7 +126,14 @@ function raiseSolids() {
 
 // ---------- flow ----------
 const SCREENS = ['menu', 'soundScr', 'skinScr', 'duelScr', 'pauseScr', 'result'];
-function show(id) { SCREENS.forEach(s => { $(s).hidden = s !== id; }); }
+function show(id) {
+  SCREENS.forEach(s => { $(s).hidden = s !== id; });
+  // Coming back to the menu always finds MARATONA, DUELOS and IA folded up
+  if (id === 'menu') document.querySelectorAll('[aria-controls]').forEach(btn => {
+    btn.setAttribute('aria-expanded', false);
+    $(btn.getAttribute('aria-controls')).hidden = true;
+  });
+}
 const on = (id, fn) => $(id).addEventListener('click', fn);
 
 function clearBoard() {
