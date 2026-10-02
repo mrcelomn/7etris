@@ -112,20 +112,15 @@ canvas { display: block; }
 .safe-probe { position: fixed; visibility: hidden; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
 .ctl { position: absolute; pointer-events: auto; touch-action: none; box-sizing: border-box; }
 
-/* The d-pad rocks toward the pressed arrow, like a real one */
-/* Thick arms: the middle track is wider than the arm length */
-.dpad {
-  display: grid; grid-template: 1fr 1.25fr 1fr / 1fr 1.25fr 1fr;
-  filter: drop-shadow(0 4px 0 var(--pad-shadow));
-  transition: transform .09s ease-out;
-}
-.dpad[data-dir="left"] { transform: perspective(500px) rotateY(-10deg); }
-.dpad[data-dir="right"] { transform: perspective(500px) rotateY(10deg); }
-.dpad[data-dir="up"] { transform: perspective(500px) rotateX(10deg); }
-.dpad[data-dir="down"] { transform: perspective(500px) rotateX(-10deg); }
+/* Thick arms: the middle track is wider than the arm length. The pad itself never moves:
+   pad.js reads its position to tell which arrow is under the thumb. */
+.dpad { display: grid; grid-template: 1fr 1.25fr 1fr / 1fr 1.25fr 1fr; }
 /* Invisible margin around the pad that still counts as touching it */
 .dpad::before { content: ""; position: absolute; inset: -14px; }
-.arm { background: var(--pad-key); position: relative; transition: background-color .09s; }
+/* Feedback is instant on press and only eases out on release */
+.arm { background: var(--pad-key); position: relative; transition: background-color .12s; }
+.arm.left, .arm.right, .arm.down { box-shadow: 0 4px 0 var(--pad-shadow); }
+.dpad[data-dir] .arm { transition: none; }
 .arm.up { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
 .arm.left { grid-area: 2 / 1; border-radius: 8px 0 0 8px; }
 .arm.mid { grid-area: 2 / 2; }
@@ -155,9 +150,9 @@ canvas { display: block; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   font-size: calc(var(--u) * .36); font-weight: 700; line-height: 1;
   box-shadow: 0 4px 0 var(--pad-shadow);
-  transition: transform .09s ease-out, box-shadow .09s ease-out, background-color .09s;
+  transition: transform .12s ease-out, box-shadow .12s ease-out, background-color .12s;
 }
-.btn.pressed { background: var(--btn-key-hi); transform: translateY(3px) scale(.97); box-shadow: 0 1px 0 var(--pad-shadow); }
+.btn.pressed { background: var(--btn-key-hi); transform: translateY(3px) scale(.97); box-shadow: 0 1px 0 var(--pad-shadow); transition: none; }
 .btn small { font-size: 9px; letter-spacing: .12em; color: var(--btn-label); }
 
 .editing .ctl { outline: 2px dashed var(--muted); outline-offset: 5px; }
@@ -326,5 +321,4 @@ canvas { display: block; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
-  .dpad[data-dir] { transform: none; }
 }
