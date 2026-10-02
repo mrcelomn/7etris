@@ -77,13 +77,16 @@
         <button class="row" data-mode="40">40 LINHAS<span class="rec" data-rec="40">—</span></button>
         <button class="row" data-mode="100">100 LINHAS<span class="rec" data-rec="100">—</span></button>
       </div>
-      <button class="row" aria-controls="battleList" aria-expanded="false">BATALHA CONTRA IA<span class="chev" aria-hidden="true"></span></button>
-      <div class="cascade" id="battleList" hidden>
-        <button class="row" data-mode="ai-easy">FÁCIL<span class="rec" data-wins="ai-easy">—</span></button>
-        <button class="row" data-mode="ai-medium">MÉDIO<span class="rec" data-wins="ai-medium">—</span></button>
-        <button class="row" data-mode="ai-hard">DIFÍCIL<span class="rec" data-wins="ai-hard">—</span></button>
+      <button class="row" aria-controls="duelsList" aria-expanded="false">DUELOS<span class="chev" aria-hidden="true"></span></button>
+      <div class="cascade" id="duelsList" hidden>
+        <button class="row" aria-controls="battleList" aria-expanded="false">IA<span class="chev" aria-hidden="true"></span></button>
+        <div class="cascade" id="battleList" hidden>
+          <button class="row" data-mode="ai-easy">FÁCIL<span class="rec" data-wins="ai-easy">—</span></button>
+          <button class="row" data-mode="ai-medium">MÉDIO<span class="rec" data-wins="ai-medium">—</span></button>
+          <button class="row" data-mode="ai-hard">DIFÍCIL<span class="rec" data-wins="ai-hard">—</span></button>
+        </div>
+        <button class="row" id="openDuel">ONLINE<span class="chev side" aria-hidden="true"></span></button>
       </div>
-      <button class="row" id="openDuel">DUELO ONLINE<span class="rec" data-wins="duel">—</span></button>
       <button class="row" data-mode="free">LIVRE</button>
     </div>
     <div class="group">

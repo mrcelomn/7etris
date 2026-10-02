@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 27;
+const VERSION = 28;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -181,7 +181,7 @@ function finish(win) {
     result('FIM DE JOGO', marathon ? `Faltaram ${goal() - lines}` : `${lines} linhas`, fmt(elapsed, marathon ? 2 : 0));
   }
 }
-const LEVEL_NAMES = { 'ai-easy': 'IA FÁCIL', 'ai-medium': 'IA MÉDIA', 'ai-hard': 'IA DIFÍCIL', duel: 'DUELO ONLINE' };
+const LEVEL_NAMES = { 'ai-easy': 'DUELO IA · FÁCIL', 'ai-medium': 'DUELO IA · MÉDIO', 'ai-hard': 'DUELO IA · DIFÍCIL', duel: 'DUELO ONLINE' };
 const winsText = (key, where = '') => {
   const n = records[key] || 0;
   return `${n} ${n === 1 ? 'vitória' : 'vitórias'}${where && ' ' + where}`;
@@ -223,7 +223,7 @@ function duelRound() {
 }
 
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
-// MARATONA and BATALHA open their list of options underneath
+// MARATONA, DUELOS and IA open their list of options underneath
 document.querySelectorAll('[aria-controls]').forEach(btn => btn.addEventListener('click', () => {
   const list = $(btn.getAttribute('aria-controls')), open = list.hidden;
   list.hidden = !open;
