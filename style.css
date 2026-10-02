@@ -15,7 +15,7 @@
   --dead: #4a4f59;
   --scrim: rgba(12, 13, 16, .94);
   --bar: rgba(18, 20, 24, .96);
-  --accent: #3f74e0;
+  --accent: #a3245a;
   /* On-screen controls follow the theme unless a skin repaints them */
   --pad-key: var(--key);
   --pad-key-hi: var(--key-hi);
@@ -88,7 +88,10 @@ canvas { display: block; }
 .board-wrap { border: 1px solid var(--line); border-top: 0; background: var(--panel); }
 .brand { display: none; }
 
+/* Small pause button pinned to the bottom centre of the screen */
 .pause-btn {
+  position: fixed; z-index: 6; left: 50%; transform: translateX(-50%);
+  bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   width: 30px; height: 30px; padding: 0; border-radius: 8px; cursor: pointer;
   border: 1px solid var(--key-hi); background: var(--key);
   display: flex; align-items: center; justify-content: center; gap: 4px;
@@ -156,7 +159,7 @@ canvas { display: block; }
 }
 .panel { margin: auto; width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 22px; }
 .screen h1 { margin: 0; font-size: 52px; letter-spacing: .08em; text-align: center; line-height: 1; }
-.screen h1 span { color: #0f9bd7; }
+.screen h1 span { color: var(--accent); }
 .screen h2 { margin: 0; font-size: 28px; letter-spacing: .08em; text-align: center; }
 .group { display: flex; flex-direction: column; gap: 8px; }
 .glabel { font-size: 11px; font-weight: 700; letter-spacing: .14em; color: var(--muted); padding-left: 4px; }
@@ -244,7 +247,6 @@ canvas { display: block; }
   --panel: #9bbc0f;
   --grid: #93b40e;
   --dead: #306230;
-  --accent: #a3245a;
   --pad-key: #222226;
   --pad-key-hi: #3a3a40;
   --pad-ink: #6d6d76;
@@ -306,7 +308,6 @@ canvas { display: block; }
   font: italic 800 22px/1 var(--font-ui); letter-spacing: .04em; color: var(--brand);
 }
 [data-skin="gameboy"] .brand small { font-size: 13px; font-weight: 700; letter-spacing: .12em; margin-left: 4px; }
-[data-skin="gameboy"] .screen h1 span { color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }

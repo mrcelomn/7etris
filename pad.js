@@ -1,6 +1,6 @@
 // On-screen controls. The d-pad and the A/B buttons float above the game; where they sit and
 // how big they are is a saved layout the player edits by dragging (move) and pinching (size).
-// Controls never cover the playfield (board, hold, next queue, stats, pause) or each other.
+// Controls never cover the playfield (board, hold, next queue, stats), the pause button or each other.
 
 // Centre of each control: x as a fraction of the game's width, y of the screen's height.
 // Game Boy arrangement: d-pad on the left, B low and A high on the right.
@@ -12,7 +12,7 @@ export const DEFAULT_LAYOUT = {
 // Width and height at scale 1, as a fraction of the game's width
 const BASE = { dpad: [0.44, 0.44], a: [0.21, 0.21], b: [0.21, 0.21] };
 const MIN_SCALE = 0.6, MAX_SCALE = 1.8, GAP = 6;
-const OBSTACLES = '.lcd';
+const OBSTACLES = '.lcd, .pause-btn';
 const NUDGES = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]];
 
 const $ = id => document.getElementById(id);
