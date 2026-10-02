@@ -1,6 +1,5 @@
 # Only the game files go to GitHub
 .claude/
-7etris.html
 *.tmp
 desktop.ini
 Thumbs.db

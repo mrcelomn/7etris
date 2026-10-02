@@ -293,8 +293,20 @@ $('startBtn').addEventListener('click', () => { haptic(); reset(); });
 const gravity = () => Math.max(80, 1000 * Math.pow(0.85, Math.floor(lines / 10)));
 
 // ---------- input ----------
-// Android only: iOS Safari exposes no vibration API to web pages
-function haptic() { try { navigator.vibrate && navigator.vibrate(8); } catch (_) {} }
+// iOS has no vibration API, but toggling a native switch (iOS 18+) plays the system tap.
+// Android uses navigator.vibrate.
+const hapticSwitch = document.createElement('label');
+hapticSwitch.ariaHidden = 'true';
+hapticSwitch.style.display = 'none';
+hapticSwitch.innerHTML = '<input type="checkbox" switch>';
+function haptic() {
+  try {
+    if (navigator.vibrate) { navigator.vibrate(8); return; }
+    document.head.appendChild(hapticSwitch);
+    hapticSwitch.click();
+    hapticSwitch.remove();
+  } catch (_) {}
+}
 
 const held = {};
 function press(k) {
