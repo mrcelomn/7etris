@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 40;
+const VERSION = 41;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -69,8 +69,15 @@ let duel = null; // the open connection to a friend, while in a duel
 const isMarathon = () => /^\d+$/.test(mode);
 const isBattle = () => mode.startsWith('ai-') || mode === 'duel';
 const goal = () => (isMarathon() ? Number(mode) : Infinity);
-// Marathon and battle keep 1 row/second like Jstris; free play speeds up 15% every 10 lines
-const gravity = () => (mode === 'free' ? Math.max(80, 1000 * 0.85 ** Math.floor(lines / 10)) : 1000);
+// Survival: a level every 10 lines, starting at 1
+const level = () => 1 + Math.floor(lines / 10);
+// ms per row. Marathon and battle keep 1 row/second like Jstris; free play speeds up 15% every
+// 10 lines; survival follows the Tetris Guideline curve, (0.8 - (level - 1) * 0.007)^(level - 1) s
+function gravity() {
+  if (mode === 'survival') { const l = level(); return Math.max(1, 1000 * (0.8 - (l - 1) * 0.007) ** (l - 1)); }
+  if (mode === 'free') return Math.max(80, 1000 * 0.85 ** Math.floor(lines / 10));
+  return 1000;
+}
 
 function pull() { if (queue.length <= PREVIEW) queue.push(...bag(rand)); return queue.shift(); }
 const collides = (m, px, py) => hits(board, m, px, py);
@@ -214,6 +221,10 @@ function finish(win) {
     const best = records[mode], isRecord = !best || elapsed < best;
     if (isRecord) { records[mode] = elapsed; save('7etris-records', records); }
     result(`${mode} LINHAS`, fmt(elapsed, 2), isRecord ? 'NOVO RECORDE!' : `Recorde: ${fmt(best, 2)}`);
+  } else if (mode === 'survival') {
+    const best = records.survival || 0, isRecord = level() > best;
+    if (isRecord) { records.survival = level(); save('7etris-records', records); }
+    result('FIM DE JOGO', `NÍVEL ${level()}`, isRecord ? 'NOVO RECORDE!' : `Recorde: nível ${best}`);
   } else {
     const marathon = isMarathon();
     result('FIM DE JOGO', marathon ? `Faltaram ${goal() - lines}` : `${lines} linhas`, fmt(elapsed, marathon ? 2 : 0));
@@ -247,6 +258,7 @@ function openMenu() {
   document.querySelectorAll('[data-wins]').forEach(el => {
     el.textContent = records[el.dataset.wins] ? winsText(el.dataset.wins) : '—';
   });
+  $('survivalRec').textContent = records.survival ? `nível ${records.survival}` : '—';
   show('menu');
 }
 
@@ -538,12 +550,14 @@ function fmt(ms, dp) {
   return `${m}:${sec}`;
 }
 function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
-const statEls = { label: $('linesLbl'), lines: $('lines'), pieces: $('pieces'), time: $('time') };
+const statEls = { label: $('linesLbl'), lines: $('lines'), midLabel: $('piecesLbl'), pieces: $('pieces'), time: $('time') };
 function stats() {
-  const marathon = isMarathon() && (state === 'play' || state === 'pause' || state === 'done');
+  const inGame = state === 'play' || state === 'pause' || state === 'done';
+  const marathon = isMarathon() && inGame, survival = mode === 'survival' && inGame;
   setText(statEls.label, marathon ? 'FALTAM' : 'LINHAS');
   setText(statEls.lines, String(marathon ? Math.max(0, goal() - lines) : lines));
-  setText(statEls.pieces, String(pieces));
+  setText(statEls.midLabel, survival ? 'NÍVEL' : 'PEÇAS');
+  setText(statEls.pieces, String(survival ? level() : pieces));
   setText(statEls.time, fmt(elapsed, marathon ? 1 : 0));
 }
 
