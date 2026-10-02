@@ -91,12 +91,12 @@ canvas { display: block; }
 
 /* Controls */
 .controls {
-  --dp: min(40vw, 22svh, 170px);
-  --a: min(36vw, 17svh, 140px);
+  --dp: min(44vw, 24svh, 186px);
+  --a: min(35vw, 17svh, 136px);
   flex: none;
   display: flex; justify-content: space-between; align-items: center;
 }
-.dpad { width: var(--dp); height: var(--dp); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); touch-action: none; }
+.dpad { margin-left: 14px; width: var(--dp); height: var(--dp); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); touch-action: none; }
 .arm { background: var(--key); position: relative; }
 .arm.up { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
 .arm.left { grid-area: 2 / 1; border-radius: 8px 0 0 8px; }
@@ -114,24 +114,23 @@ canvas { display: block; }
 .dpad[data-dir="up"] .arm.up, .dpad[data-dir="down"] .arm.down,
 .dpad[data-dir="left"] .arm.left, .dpad[data-dir="right"] .arm.right { background: var(--key-hi); }
 
-/* Big square A on top; B below it at the right edge, wide and flat like a shoulder button */
-.ab { position: relative; width: calc(var(--a) * 1.2); height: calc(var(--a) * 1.38 + 10px); }
+/* A: tall block at the bottom right. B: shoulder-style button at the foot of the NEXT column, beside the board. */
 .btn {
-  position: absolute;
   border: 1px solid var(--key-hi); padding: 0; cursor: pointer;
   background: var(--key); color: var(--fg);
-  display: flex; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-family: var(--font-ui); font-weight: 700; line-height: 1;
   touch-action: none;
 }
 .btn.a {
-  left: 0; top: 0; width: var(--a); height: var(--a); border-radius: 18px;
-  flex-direction: column; gap: 6px; font-size: calc(var(--a) * .3);
+  margin-right: 18px; width: var(--a); height: calc(var(--a) * 1.3); border-radius: 18px;
+  gap: 6px; font-size: calc(var(--a) * .3);
 }
 .btn.b {
-  right: 0; bottom: 0; width: calc(var(--a) * .8); height: calc(var(--a) * .38); border-radius: 12px 12px 22px 12px;
-  gap: 8px; font-size: calc(var(--a) * .18);
+  margin-top: auto; width: 100%; height: calc(var(--c) * 3.2); border-radius: 12px;
+  gap: 4px; font-size: calc(var(--c) * .9);
 }
+.btn.b small { font-size: 9px; }
 .btn.pressed { background: var(--key-press); border-color: var(--key-press); }
 .btn small { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
 .btn.pressed small { color: var(--fg); }
@@ -155,6 +154,7 @@ button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px;
     </div>
     <div class="side right">
       <div><div class="label">NEXT</div><div class="slot"><canvas id="next"></canvas></div></div>
+      <button class="btn b" data-key="b" aria-label="B: guardar peça">B<small>HOLD</small></button>
     </div>
   </div>
 
@@ -162,10 +162,7 @@ button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px;
     <div class="dpad" id="dpad" role="group" aria-label="Direcional">
       <div class="arm up"></div><div class="arm left"></div><div class="arm mid"></div><div class="arm right"></div><div class="arm down"></div>
     </div>
-    <div class="ab">
-      <button class="btn a" data-key="a" aria-label="A: girar">A<small>GIRAR</small></button>
-      <button class="btn b" data-key="b" aria-label="B: guardar peça">B<small>HOLD</small></button>
-    </div>
+    <button class="btn a" data-key="a" aria-label="A: girar">A<small>GIRAR</small></button>
   </div>
 </div>
 
@@ -273,7 +270,7 @@ function lock() {
 }
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 10;
+const VERSION = 11;
 $('ver').textContent = 'v' + VERSION;
 
 // `over` is true whenever no game is running: before the first start and after a top-out
