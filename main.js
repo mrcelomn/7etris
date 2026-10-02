@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 44;
+const VERSION = 45;
 
 // ---------- rules ----------
 const PREVIEW = 5;
