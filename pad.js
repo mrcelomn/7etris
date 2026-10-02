@@ -120,6 +120,9 @@ function setDir(d) {
 dpad.addEventListener('pointerdown', e => {
   e.preventDefault();
   if (editing) return;
+  // A new touch always starts fresh: iOS sometimes never reports the previous release, and
+  // a direction left "held" would make tapping that same arrow again do nothing
+  setDir(null);
   dpPointer = e.pointerId;
   try { dpad.setPointerCapture(e.pointerId); } catch (_) {}
   setDir(dirFrom(e));

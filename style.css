@@ -113,8 +113,9 @@ canvas { display: block; }
 .ctl { position: absolute; pointer-events: auto; touch-action: none; box-sizing: border-box; }
 
 /* The d-pad rocks toward the pressed arrow, like a real one */
+/* Thick arms: the middle track is wider than the arm length */
 .dpad {
-  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  display: grid; grid-template: 1fr 1.25fr 1fr / 1fr 1.25fr 1fr;
   filter: drop-shadow(0 4px 0 var(--pad-shadow));
   transition: transform .09s ease-out;
 }
@@ -130,16 +131,22 @@ canvas { display: block; }
 .arm.mid { grid-area: 2 / 2; }
 .arm.right { grid-area: 2 / 3; border-radius: 0 8px 8px 0; }
 .arm.down { grid-area: 3 / 2; border-radius: 0 0 8px 8px; }
+/* Arrows sit toward the centre, where the thumb rests */
 .arm:not(.mid)::after {
   content: ""; position: absolute; left: 50%; top: 50%;
-  border: 9px solid transparent; transform: translate(-50%, -50%);
+  border: 10px solid transparent; transform: translate(-50%, -50%);
 }
-.arm.up::after { border-bottom-color: var(--pad-ink); margin-top: -5px; }
-.arm.down::after { border-top-color: var(--pad-ink); margin-top: 5px; }
-.arm.left::after { border-right-color: var(--pad-ink); margin-left: -5px; }
-.arm.right::after { border-left-color: var(--pad-ink); margin-left: 5px; }
+.arm.up::after { border-bottom-color: var(--pad-ink); top: 62%; margin-top: -5px; }
+.arm.down::after { border-top-color: var(--pad-ink); top: 38%; margin-top: 5px; }
+.arm.left::after { border-right-color: var(--pad-ink); left: 62%; margin-left: -5px; }
+.arm.right::after { border-left-color: var(--pad-ink); left: 38%; margin-left: 5px; }
+/* A pressed arrow lights up its arm and its half of the centre square */
 .dpad[data-dir="up"] .arm.up, .dpad[data-dir="down"] .arm.down,
 .dpad[data-dir="left"] .arm.left, .dpad[data-dir="right"] .arm.right { background: var(--pad-key-hi); }
+.dpad[data-dir="up"] .arm.mid { background: linear-gradient(to bottom, var(--pad-key-hi) 50%, var(--pad-key) 50%); }
+.dpad[data-dir="down"] .arm.mid { background: linear-gradient(to top, var(--pad-key-hi) 50%, var(--pad-key) 50%); }
+.dpad[data-dir="left"] .arm.mid { background: linear-gradient(to right, var(--pad-key-hi) 50%, var(--pad-key) 50%); }
+.dpad[data-dir="right"] .arm.mid { background: linear-gradient(to left, var(--pad-key-hi) 50%, var(--pad-key) 50%); }
 
 /* Round A and B, as on a Game Boy; they sink when pressed */
 .btn {
