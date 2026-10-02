@@ -135,13 +135,10 @@ canvas { display: block; }
 .arm.down::after { border-top-color: var(--pad-ink); top: 38%; margin-top: 5px; }
 .arm.left::after { border-right-color: var(--pad-ink); left: 62%; margin-left: -5px; }
 .arm.right::after { border-left-color: var(--pad-ink); left: 38%; margin-left: 5px; }
-/* A pressed arrow lights up its arm and its half of the centre square */
+/* A pressed arrow lights up only its arm; the centre square stays as it is, even though
+   touching it still counts toward the nearest arrow */
 .dpad[data-dir="up"] .arm.up, .dpad[data-dir="down"] .arm.down,
 .dpad[data-dir="left"] .arm.left, .dpad[data-dir="right"] .arm.right { background: var(--pad-key-hi); }
-.dpad[data-dir="up"] .arm.mid { background: linear-gradient(to bottom, var(--pad-key-hi) 50%, var(--pad-key) 50%); }
-.dpad[data-dir="down"] .arm.mid { background: linear-gradient(to top, var(--pad-key-hi) 50%, var(--pad-key) 50%); }
-.dpad[data-dir="left"] .arm.mid { background: linear-gradient(to right, var(--pad-key-hi) 50%, var(--pad-key) 50%); }
-.dpad[data-dir="right"] .arm.mid { background: linear-gradient(to left, var(--pad-key-hi) 50%, var(--pad-key) 50%); }
 
 /* Round A and B, as on a Game Boy; they sink when pressed */
 .btn {

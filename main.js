@@ -5,7 +5,7 @@ import { SKINS, drawBlock } from './skins.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 21;
+const VERSION = 22;
 
 // ---------- rules ----------
 const COLS = 10, ROWS = 22, HID = 2, VIS = ROWS - HID, PREVIEW = 5;
