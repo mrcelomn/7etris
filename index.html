@@ -87,6 +87,7 @@ canvas { display: block; }
   touch-action: manipulation;
 }
 .start:active { filter: brightness(.85); }
+.ver { position: absolute; bottom: 8px; font: 500 11px/1 var(--font-num); color: var(--muted); }
 
 /* Controls */
 .controls {
@@ -144,7 +145,7 @@ button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px;
     </div>
     <div class="board-wrap">
       <canvas id="board"></canvas>
-      <div class="over" id="over" hidden><b id="overTitle">7ETRIS</b><span id="overSub"></span><button class="start" id="startBtn">COMEÇAR</button></div>
+      <div class="over" id="over" hidden><b id="overTitle">7ETRIS</b><span id="overSub"></span><button class="start" id="startBtn">COMEÇAR</button><small class="ver" id="ver"></small></div>
     </div>
     <div class="side right">
       <div><div class="label">NEXT</div><div class="slot"><canvas id="next"></canvas></div></div>
@@ -266,6 +267,10 @@ function lock() {
 }
 
 // `over` is true whenever no game is running: before the first start and after a top-out
+// Bump on every deploy so the menu shows which version the phone is running
+const VERSION = 5;
+$('ver').textContent = 'v' + VERSION;
+
 function showMenu(title, sub, btn) {
   $('overTitle').textContent = title; $('overSub').textContent = sub; $('startBtn').textContent = btn;
   $('over').hidden = false;
