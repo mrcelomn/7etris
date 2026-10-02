@@ -27,8 +27,9 @@
   --pad-shadow: rgba(0, 0, 0, .45);
   --font-ui: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
   --font-num: "JetBrains Mono", ui-monospace, Menlo, monospace;
-  /* Height kept free under the board for the controls' default spot */
-  --controls-h: calc(min(35vw, 17svh, 136px) * 1.3);
+  /* Height kept free under the board: the default d-pad (47.5% of the game's width, see
+     pad.js) plus the gaps around it and the pause button */
+  --controls-h: calc(min(100vw, 480px) * .475 + 62px);
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -63,7 +64,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .app {
   height: 100%; max-width: 480px; margin: 0 auto;
   box-sizing: border-box;
-  padding: calc(6px + env(safe-area-inset-top, 0px)) 10px calc(20px + var(--controls-h) + env(safe-area-inset-bottom, 0px));
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 10px calc(var(--controls-h) + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column;
   touch-action: none;
 }

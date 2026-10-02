@@ -1,11 +1,11 @@
 import * as audio from './audio.js';
-import { initPad, placePad, editPad, DEFAULT_LAYOUT } from './pad.js';
+import { initPad, placePad, editPad } from './pad.js';
 import { SKINS, drawBlock } from './skins.js';
 
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 17;
+const VERSION = 18;
 
 // ---------- rules ----------
 const COLS = 10, ROWS = 22, HID = 2, VIS = ROWS - HID, PREVIEW = 5;
@@ -293,7 +293,10 @@ function release(k) { delete held[k]; }
 
 // v15 changed the default controls back to the Game Boy layout; drop layouts saved for the old shapes
 try { localStorage.removeItem('7etris-pad'); } catch (_) {}
-initPad({ press, release }, load('7etris-pad-2', DEFAULT_LAYOUT));
+// No saved layout means the default one, fitted to this screen
+let savedPad = null;
+try { savedPad = JSON.parse(localStorage.getItem('7etris-pad-2')); } catch (_) {}
+initPad({ press, release }, savedPad);
 on('openPad', () => {
   state = 'edit';
   show(null);

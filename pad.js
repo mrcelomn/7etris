@@ -2,15 +2,10 @@
 // how big they are is a saved layout the player edits by dragging (move) and pinching (size).
 // Controls never cover the playfield (board, hold, next queue, stats), the pause button or each other.
 
-// Centre of each control: x as a fraction of the game's width, y of the screen's height.
-// Game Boy arrangement: d-pad on the left, B low and A high on the right.
-export const DEFAULT_LAYOUT = {
-  dpad: { x: 0.27, y: 0.81, s: 1 },
-  b: { x: 0.62, y: 0.855, s: 1 },
-  a: { x: 0.83, y: 0.77, s: 1 },
-};
-// Width and height at scale 1, as a fraction of the game's width
+// A layout gives each control's centre (x as a fraction of the game's width, y of the screen's
+// height) and scale. Width and height at scale 1, as a fraction of the game's width:
 const BASE = { dpad: [0.44, 0.44], a: [0.21, 0.21], b: [0.21, 0.21] };
+const DEFAULT_SCALE = { dpad: 1.08, a: 1, b: 1 };
 const MIN_SCALE = 0.6, MAX_SCALE = 1.8, GAP = 6;
 const OBSTACLES = '.lcd, .pause-btn';
 const NUDGES = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]];
@@ -21,11 +16,31 @@ const els = { dpad: $('dpad'), a: $('btnA'), b: $('btnB') };
 const clone = l => JSON.parse(JSON.stringify(l));
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
-let layout, game, editing = false, selected = 'dpad', onDone;
+// `custom` is false until the player saves a layout; until then the default is recomputed
+// for whatever screen the game is on
+let layout, custom, game, editing = false, selected = 'dpad', onDone;
 
 export function initPad(handlers, saved) {
   game = handlers;
-  layout = clone(saved);
+  custom = !!saved;
+  layout = saved && clone(saved);
+}
+
+// Game Boy arrangement in the space between the playfield and the pause button:
+// d-pad on the left, A high and B low on the right
+function defaultLayout() {
+  const a = app.getBoundingClientRect(), H = innerHeight;
+  const top = $('lcd').getBoundingClientRect().bottom + 14;
+  const bottom = $('pauseBtn').getBoundingClientRect().top - 12;
+  const zone = Math.max(bottom - top, 0), mid = top + zone / 2;
+  const dp = BASE.dpad[0] * a.width * DEFAULT_SCALE.dpad, btn = BASE.a[0] * a.width;
+  const ax = a.right - 12 - btn / 2, rise = Math.max(0, Math.min(btn * 0.4, (zone - btn) / 2));
+  const at = (px, py, id) => ({ x: (px - a.left) / a.width, y: py / H, s: DEFAULT_SCALE[id] });
+  return {
+    dpad: at(a.left + 12 + dp / 2, mid, 'dpad'),
+    a: at(ax, mid - rise, 'a'),
+    b: at(ax - btn * 1.1, mid + rise, 'b'),
+  };
 }
 
 // ---------- placement ----------
@@ -65,6 +80,7 @@ function tryPlace(id, p) {
 // Lays out every control. One that no longer fits (another screen size, the board grew)
 // moves to the nearest free spot.
 export function placePad() {
+  if (!custom) layout = defaultLayout();
   const a = app.getBoundingClientRect();
   for (const id in els) {
     const p = layout[id];
@@ -186,9 +202,10 @@ addEventListener('wheel', e => {
   tryPlace(selected, { ...p, s: clamp(p.s - Math.sign(e.deltaY) * 0.05, MIN_SCALE, MAX_SCALE) });
 }, { passive: false });
 
-$('padReset').addEventListener('click', () => { layout = clone(DEFAULT_LAYOUT); placePad(); });
+$('padReset').addEventListener('click', () => { custom = false; placePad(); });
 $('padDone').addEventListener('click', () => {
   editing = false;
+  custom = true;
   touches.clear(); drag = pinch = null;
   document.body.classList.remove('editing');
   $('editbar').hidden = true;
