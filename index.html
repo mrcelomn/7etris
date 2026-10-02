@@ -91,8 +91,9 @@ canvas { display: block; }
 
 /* Controls */
 .controls {
-  --dp: min(43vw, 25svh, 190px);
-  --btn: min(21vw, 12svh, 92px);
+  --dp: min(48vw, 27svh, 210px);
+  --a: min(27vw, 15svh, 116px);
+  --b: min(19vw, 10.5svh, 80px);
   flex: none;
   display: flex; justify-content: space-between; align-items: center;
 }
@@ -114,7 +115,8 @@ canvas { display: block; }
 .dpad[data-dir="up"] .arm.up, .dpad[data-dir="down"] .arm.down,
 .dpad[data-dir="left"] .arm.left, .dpad[data-dir="right"] .arm.right { background: var(--key-hi); }
 
-.ab { position: relative; margin-right: 14px; width: calc(var(--btn) * 2.15); height: calc(var(--btn) * 1.65); }
+/* Big A on top, smaller B tucked below and to the right */
+.ab { position: relative; width: calc(var(--a) + var(--b) * .55); height: var(--dp); }
 .round {
   position: absolute;
   width: var(--btn); height: var(--btn); border-radius: 50%;
@@ -124,8 +126,8 @@ canvas { display: block; }
   font: 700 calc(var(--btn) * .34)/1 var(--font-ui);
   touch-action: none;
 }
-.round.b { left: 0; bottom: 0; }
-.round.a { right: 0; top: 0; }
+.round.a { --btn: var(--a); left: 0; top: 0; }
+.round.b { --btn: var(--b); right: 0; bottom: 0; }
 .round.pressed { background: var(--key-press); border-color: var(--key-press); }
 .round small { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
 .round.pressed small { color: var(--fg); }
@@ -267,7 +269,7 @@ function lock() {
 }
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 8;
+const VERSION = 9;
 $('ver').textContent = 'v' + VERSION;
 
 // `over` is true whenever no game is running: before the first start and after a top-out
