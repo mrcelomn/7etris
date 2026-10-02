@@ -30,6 +30,13 @@
   /* Height kept free under the board: the default d-pad (47.5% of the game's width, see
      pad.js) plus the gaps around it and the pause button */
   --controls-h: calc(min(100vw, 480px) * .475 + 62px);
+  /* Full screen height; everything that spans the screen uses this instead of 100% or inset: 0 */
+  --screen-h: 100dvh;
+}
+/* iOS 26 home-screen apps report every height except lvh short by the status bar, which
+   leaves a dead strip at the bottom (WebKit regression); lvh is the real screen there */
+@media (display-mode: standalone) {
+  :root { --screen-h: 100lvh; }
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -46,7 +53,7 @@
   --bar: rgba(255, 255, 255, .97);
   --pad-shadow: rgba(0, 0, 0, .16);
 }
-html, body { height: 100%; margin: 0; }
+html, body { height: var(--screen-h); margin: 0; }
 html, body, * {
   -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none;
@@ -92,7 +99,7 @@ canvas { display: block; }
 /* Small pause button pinned to the bottom centre of the screen */
 .pause-btn {
   position: fixed; z-index: 6; left: 50%; transform: translateX(-50%);
-  bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  top: calc(var(--screen-h) - 36px - env(safe-area-inset-bottom, 0px));
   width: 30px; height: 30px; padding: 0; border-radius: 8px; cursor: pointer;
   border: 1px solid var(--key-hi); background: var(--key);
   display: flex; align-items: center; justify-content: center; gap: 4px;
@@ -100,7 +107,7 @@ canvas { display: block; }
 .pause-btn i { width: 4px; height: 12px; border-radius: 1px; background: var(--muted); }
 
 /* ---------- on-screen controls (placed by pad.js) ---------- */
-.pad { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+.pad { position: fixed; top: 0; left: 0; right: 0; height: var(--screen-h); z-index: 5; pointer-events: none; }
 /* Measured by pad.js to keep controls off the status bar and the home indicator */
 .safe-probe { position: fixed; visibility: hidden; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
 .ctl { position: absolute; pointer-events: auto; touch-action: none; box-sizing: border-box; }
@@ -151,7 +158,7 @@ canvas { display: block; }
 
 /* ---------- menus ---------- */
 .screen {
-  position: fixed; inset: 0; z-index: 10;
+  position: fixed; top: 0; left: 0; right: 0; height: var(--screen-h); z-index: 10;
   background: var(--scrim);
   overflow-y: auto; touch-action: manipulation;
   display: flex;

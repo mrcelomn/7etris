@@ -15,6 +15,8 @@ const app = document.querySelector('.app');
 const els = { dpad: $('dpad'), a: $('btnA'), b: $('btnB') };
 const clone = l => JSON.parse(JSON.stringify(l));
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+// The body spans the real screen (see --screen-h in style.css); innerHeight can come up short on iOS
+const screenH = () => document.body.clientHeight;
 
 // `custom` is false until the player saves a layout; until then the default is recomputed
 // for whatever screen the game is on
@@ -29,7 +31,7 @@ export function initPad(handlers, saved) {
 // Game Boy arrangement in the space between the playfield and the pause button:
 // d-pad on the left, A high and B low on the right
 function defaultLayout() {
-  const a = app.getBoundingClientRect(), H = innerHeight;
+  const a = app.getBoundingClientRect(), H = screenH();
   const top = $('lcd').getBoundingClientRect().bottom + 14;
   const bottom = $('pauseBtn').getBoundingClientRect().top - 12;
   const zone = Math.max(bottom - top, 0), mid = top + zone / 2;
@@ -52,7 +54,7 @@ function rectFor(id, p) {
   const safe = getComputedStyle($('safeProbe'));
   return {
     left: clamp(a.left + p.x * a.width - w / 2, a.left, a.right - w),
-    top: clamp(p.y * innerHeight - h / 2, parseFloat(safe.paddingTop), innerHeight - parseFloat(safe.paddingBottom) - h),
+    top: clamp(p.y * screenH() - h / 2, parseFloat(safe.paddingTop), screenH() - parseFloat(safe.paddingBottom) - h),
     w, h,
   };
 }
@@ -65,7 +67,7 @@ function fits(id, r) {
 function apply(id, r, s) {
   const a = app.getBoundingClientRect(), p = layout[id];
   p.x = (r.left + r.w / 2 - a.left) / a.width;
-  p.y = (r.top + r.h / 2) / innerHeight;
+  p.y = (r.top + r.h / 2) / screenH();
   p.s = s;
   Object.assign(els[id].style, { left: r.left + 'px', top: r.top + 'px', width: r.w + 'px', height: r.h + 'px' });
   els[id].style.setProperty('--u', r.w + 'px');
@@ -85,9 +87,9 @@ export function placePad() {
   for (const id in els) {
     const p = layout[id];
     let r = rectFor(id, p);
-    search: for (let d = 8; !fits(id, r) && d < innerHeight; d += 8) {
+    search: for (let d = 8; !fits(id, r) && d < screenH(); d += 8) {
       for (const [dx, dy] of NUDGES) {
-        const c = rectFor(id, { ...p, x: p.x + (dx * d) / a.width, y: p.y + (dy * d) / innerHeight });
+        const c = rectFor(id, { ...p, x: p.x + (dx * d) / a.width, y: p.y + (dy * d) / screenH() });
         if (fits(id, c)) { r = c; break search; }
       }
     }
@@ -182,7 +184,7 @@ addEventListener('pointermove', e => {
     tryPlace(selected, { ...p, s: clamp((pinch.s0 * spread()) / pinch.d0, MIN_SCALE, MAX_SCALE) });
   } else if (drag && e.pointerId === drag.pointer) {
     const a = app.getBoundingClientRect();
-    const x = (e.clientX - drag.ox - a.left) / a.width, y = (e.clientY - drag.oy) / innerHeight;
+    const x = (e.clientX - drag.ox - a.left) / a.width, y = (e.clientY - drag.oy) / screenH();
     // Slide along whichever axis is still free when the full move would hit something
     tryPlace(selected, { ...p, x, y }) || tryPlace(selected, { ...p, x }) || tryPlace(selected, { ...p, y });
   }
