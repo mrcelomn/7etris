@@ -15,458 +15,110 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap">
-<style>
-html, body { margin: 0; }
-[hidden] { display: none !important; }
-</style>
-<style>
-/* Layout: playfield on top (hold | board | next), handheld-style controls in the bottom third. Deliberately dark-only, like a competitive stacker. */
-:root {
-  color-scheme: dark;
-  --bg: #121418;
-  --panel: #0a0b0d;
-  --grid: #1d2026;
-  --line: #2c3038;
-  --fg: #e6e8ec;
-  --muted: #7d8492;
-  --key: #262a32;
-  --key-hi: #343944;
-  --key-press: #3f74e0;
-  --font-ui: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
-  --font-num: "JetBrains Mono", ui-monospace, Menlo, monospace;
-}
-html, body { height: 100%; }
-html, body, * {
-  -webkit-user-select: none; user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-body {
-  background: var(--bg); color: var(--fg);
-  overflow: hidden; overscroll-behavior: none; touch-action: none;
-  font-family: var(--font-ui);
-}
-.app {
-  height: 100%; max-width: 480px; margin: 0 auto;
-  box-sizing: border-box;
-  padding: calc(6px + env(safe-area-inset-top, 0px)) 10px calc(10px + env(safe-area-inset-bottom, 0px));
-  display: flex; flex-direction: column; gap: 10px;
-}
-
-/* Playfield */
-.field {
-  --c: 18px;
-  flex: 1 1 0; min-height: 0;
-  display: flex; justify-content: center; align-items: center;
-  gap: calc(var(--c) * .3);
-}
-.side { width: calc(var(--c) * 1.9); align-self: stretch; display: flex; flex-direction: column; gap: calc(var(--c) * .6); padding-top: 2px; }
-.label { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: var(--muted); line-height: 1; margin-bottom: 5px; }
-.slot { background: var(--panel); border: 1px solid var(--line); }
-canvas { display: block; }
-.side.right .slot { padding: 2px 0; }
-.stats { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
-.stat .v { font: 700 calc(var(--c) * .62)/1 var(--font-num); font-variant-numeric: tabular-nums; }
-.stat .label { margin-bottom: 4px; }
-
-.board-wrap { position: relative; border: 1px solid var(--line); border-top: 0; background: var(--panel); }
-.over {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  background: rgba(10, 11, 13, .78);
-  text-align: center;
-}
-.over b { font-size: 24px; letter-spacing: .06em; }
-.over span { font-size: 14px; color: var(--muted); letter-spacing: .04em; }
-.over span:empty { display: none; }
-.start {
-  margin-top: 10px;
-  padding: 12px 26px; border: 0; border-radius: 999px; cursor: pointer;
-  background: var(--key-press); color: #fff;
-  font: 700 17px/1 var(--font-ui); letter-spacing: .12em;
-  touch-action: manipulation;
-}
-.start:active { filter: brightness(.85); }
-.ver { position: absolute; bottom: 8px; font: 500 11px/1 var(--font-num); color: var(--muted); }
-
-/* Controls */
-.controls {
-  --dp: min(44vw, 24svh, 186px);
-  --a: min(35vw, 17svh, 136px);
-  flex: none;
-  display: flex; justify-content: space-between; align-items: center;
-}
-.dpad { position: relative; margin-left: 14px; width: var(--dp); height: var(--dp); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); touch-action: none; }
-/* Invisible margin around the pad that still counts as touching it */
-.dpad::before { content: ""; position: absolute; inset: -14px; }
-.arm { background: var(--key); position: relative; }
-.arm.up { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
-.arm.left { grid-area: 2 / 1; border-radius: 8px 0 0 8px; }
-.arm.mid { grid-area: 2 / 2; }
-.arm.right { grid-area: 2 / 3; border-radius: 0 8px 8px 0; }
-.arm.down { grid-area: 3 / 2; border-radius: 0 0 8px 8px; }
-.arm:not(.mid)::after {
-  content: ""; position: absolute; left: 50%; top: 50%;
-  border: 9px solid transparent; transform: translate(-50%, -50%);
-}
-.arm.up::after { border-bottom-color: var(--muted); margin-top: -5px; }
-.arm.down::after { border-top-color: var(--muted); margin-top: 5px; }
-.arm.left::after { border-right-color: var(--muted); margin-left: -5px; }
-.arm.right::after { border-left-color: var(--muted); margin-left: 5px; }
-.dpad[data-dir="up"] .arm.up, .dpad[data-dir="down"] .arm.down,
-.dpad[data-dir="left"] .arm.left, .dpad[data-dir="right"] .arm.right { background: var(--key-hi); }
-
-/* A: tall block at the bottom right. B: shoulder-style button at the foot of the NEXT column, beside the board. */
-.btn {
-  border: 1px solid var(--key-hi); padding: 0; cursor: pointer;
-  background: var(--key); color: var(--fg);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  font-family: var(--font-ui); font-weight: 700; line-height: 1;
-  touch-action: none;
-}
-.btn.a {
-  margin-right: 18px; width: var(--a); height: calc(var(--a) * 1.3); border-radius: 18px;
-  gap: 6px; font-size: calc(var(--a) * .3);
-}
-.btn.b {
-  margin-top: auto; width: 100%; height: calc(var(--c) * 3.2); border-radius: 12px;
-  gap: 4px; font-size: calc(var(--c) * .9);
-}
-.btn.b small { font-size: 9px; }
-.btn.pressed { background: var(--key-hi); }
-.btn small { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
-button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="app">
   <div class="field" id="field">
     <div class="side left">
+      <button class="ui pause-btn" id="pauseBtn" aria-label="Pausar"><i></i><i></i></button>
       <div><div class="label">HOLD</div><div class="slot"><canvas id="hold"></canvas></div></div>
       <div class="stats">
-        <div class="stat"><div class="label">LINHAS</div><div class="v" id="lines">0</div></div>
+        <div class="stat"><div class="label" id="linesLbl">LINHAS</div><div class="v" id="lines">0</div></div>
         <div class="stat"><div class="label">PEÇAS</div><div class="v" id="pieces">0</div></div>
-        <div class="stat"><div class="label">TEMPO</div><div class="v" id="time">0:00</div></div>
+        <div class="stat"><div class="label">TEMPO</div><div class="v time" id="time">0:00</div></div>
       </div>
     </div>
-    <div class="board-wrap">
-      <canvas id="board"></canvas>
-      <div class="over" id="over" hidden><b id="overTitle">7ETRIS</b><span id="overSub"></span><button class="start" id="startBtn">COMEÇAR</button><small class="ver" id="ver"></small></div>
-    </div>
+    <div class="board-wrap"><canvas id="board"></canvas></div>
     <div class="side right">
       <div><div class="label">NEXT</div><div class="slot"><canvas id="next"></canvas></div></div>
-      <button class="btn b" data-key="b" aria-label="B: guardar peça">B<small>HOLD</small></button>
     </div>
-  </div>
-
-  <div class="controls">
-    <div class="dpad" id="dpad" role="group" aria-label="Direcional">
-      <div class="arm up"></div><div class="arm left"></div><div class="arm mid"></div><div class="arm right"></div><div class="arm down"></div>
-    </div>
-    <button class="btn a" data-key="a" aria-label="A: girar">A<small>GIRAR</small></button>
   </div>
 </div>
 
-<script>
-(() => {
-'use strict';
-const $ = id => document.getElementById(id);
+<div class="pad">
+  <div class="ctl dpad" id="dpad" role="group" aria-label="Direcional">
+    <div class="arm up"></div><div class="arm left"></div><div class="arm mid"></div><div class="arm right"></div><div class="arm down"></div>
+  </div>
+  <button class="ctl btn a" id="btnA" aria-label="A: girar">A<small>GIRAR</small></button>
+  <button class="ctl btn b" id="btnB" aria-label="B: guardar peça">B<small>HOLD</small></button>
+</div>
 
-// ---------- rules ----------
-const COLS = 10, ROWS = 22, HID = 2, VIS = ROWS - HID, PREVIEW = 5;
-const SHAPES = {
-  I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
-  O: [[1,1],[1,1]],
-  T: [[0,1,0],[1,1,1],[0,0,0]],
-  S: [[0,1,1],[1,1,0],[0,0,0]],
-  Z: [[1,1,0],[0,1,1],[0,0,0]],
-  J: [[1,0,0],[1,1,1],[0,0,0]],
-  L: [[0,0,1],[1,1,1],[0,0,0]],
-};
-const COLORS = { I: '#0f9bd7', O: '#e39f02', T: '#af298a', S: '#59b101', Z: '#d70f37', J: '#2141c6', L: '#e35b02' };
-// SRS clockwise wall kicks, indexed by the rotation state we leave (y is flipped: + is down)
-const KICKS = [
-  [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
-  [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
-  [[0,0],[1,0],[1,-1],[0,2],[1,2]],
-  [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
-];
-const KICKS_I = [
-  [[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
-  [[0,0],[-1,0],[2,0],[-1,-2],[2,1]],
-  [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
-  [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
-];
-const DAS = 160, ARR = 35, SOFT = 25, LOCK = 500, MAX_RESETS = 15;
+<div class="ui editbar" id="editbar" hidden>
+  <p>Toque num controle e arraste para mover</p>
+  <div class="edit-row">
+    <button class="key" id="padSmaller" aria-label="Diminuir">−</button>
+    <span class="size" id="padSize">100%</span>
+    <button class="key" id="padBigger" aria-label="Aumentar">+</button>
+    <button class="key wide" id="padReset">PADRÃO</button>
+    <button class="key wide primary" id="padDone">PRONTO</button>
+  </div>
+</div>
 
-// ---------- state ----------
-let board, cur, queue, hold, canHold, lines, pieces, elapsed, over;
-let dropAcc = 0, lockT = 0, lockResets = 0;
+<div class="ui screen" id="menu" hidden>
+  <div class="panel">
+    <h1><span>7</span>ETRIS</h1>
+    <div class="group">
+      <div class="glabel">MARATONA · MENOR TEMPO</div>
+      <button class="row" data-mode="20">20 LINHAS<span class="rec" data-rec="20">—</span></button>
+      <button class="row" data-mode="40">40 LINHAS<span class="rec" data-rec="40">—</span></button>
+      <button class="row" data-mode="100">100 LINHAS<span class="rec" data-rec="100">—</span></button>
+    </div>
+    <div class="group">
+      <div class="glabel">SEM LIMITE</div>
+      <button class="row" data-mode="free">LIVRE<span class="rec">fica mais rápido</span></button>
+    </div>
+    <div class="group">
+      <div class="glabel">AJUSTES</div>
+      <button class="row" id="openSound">ÁUDIO<span class="rec">›</span></button>
+      <button class="row" id="openPad">CONTROLES<span class="rec">›</span></button>
+    </div>
+    <div class="ver" id="ver"></div>
+  </div>
+</div>
 
-const rotCW = m => m.map((r, y) => r.map((_, x) => m[m.length - 1 - x][y]));
-const newBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+<div class="ui screen" id="soundScr" hidden>
+  <div class="panel">
+    <h2>ÁUDIO</h2>
+    <div class="setting">
+      <div class="setting-head">MÚSICA<button class="toggle" id="musicOn" aria-label="Música ligada"></button></div>
+      <input type="range" id="musicVol" min="0" max="100" aria-label="Volume da música">
+    </div>
+    <div class="setting">
+      <div class="setting-head">EFEITOS<button class="toggle" id="sfxOn" aria-label="Efeitos ligados"></button></div>
+      <input type="range" id="sfxVol" min="0" max="100" aria-label="Volume dos efeitos">
+    </div>
+    <button class="row primary" id="soundBack">VOLTAR</button>
+  </div>
+</div>
 
-function bag() {
-  const b = Object.keys(SHAPES);
-  for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
-  return b;
-}
-function pull() { if (queue.length <= PREVIEW) queue.push(...bag()); return queue.shift(); }
+<div class="ui screen" id="pauseScr" hidden>
+  <div class="panel">
+    <h2>PAUSA</h2>
+    <div class="group">
+      <button class="row primary" id="resume">CONTINUAR</button>
+      <button class="row plain" id="restart">REINICIAR</button>
+      <button class="row plain" id="pauseMenu">MENU</button>
+    </div>
+  </div>
+</div>
 
-function collides(m, px, py) {
-  for (let y = 0; y < m.length; y++) for (let x = 0; x < m[y].length; x++) {
-    if (!m[y][x]) continue;
-    const bx = px + x, by = py + y;
-    if (bx < 0 || bx >= COLS || by >= ROWS) return true;
-    if (by >= 0 && board[by][bx]) return true;
-  }
-  return false;
-}
+<div class="ui screen" id="result" hidden>
+  <div class="panel">
+    <div class="result-text">
+      <h2 id="resTitle"></h2>
+      <div class="big" id="resMain"></div>
+      <div class="sub hl" id="resSub"></div>
+      <div class="sub" id="resStats"></div>
+    </div>
+    <div class="group">
+      <button class="row primary" id="again">JOGAR DE NOVO</button>
+      <button class="row plain" id="resMenu">MENU</button>
+    </div>
+  </div>
+</div>
 
-function spawn(t) {
-  const m = SHAPES[t].map(r => r.slice());
-  cur = { t, m, r: 0, x: Math.floor((COLS - m.length) / 2), y: HID - 1 };
-  dropAcc = 0; lockT = 0; lockResets = 0;
-  if (collides(cur.m, cur.x, cur.y)) end();
-}
-
-function bumpLock() { if (lockT > 0 && lockResets < MAX_RESETS) { lockT = 0; lockResets++; } }
-function tryMove(dx, dy) {
-  if (collides(cur.m, cur.x + dx, cur.y + dy)) return false;
-  cur.x += dx; cur.y += dy; bumpLock(); return true;
-}
-function rotate() {
-  if (cur.t === 'O') return;
-  const m = rotCW(cur.m);
-  for (const [kx, ky] of (cur.t === 'I' ? KICKS_I : KICKS)[cur.r]) {
-    if (!collides(m, cur.x + kx, cur.y + ky)) { cur.m = m; cur.x += kx; cur.y += ky; cur.r = (cur.r + 1) % 4; bumpLock(); return; }
-  }
-}
-function holdPiece() {
-  if (!canHold) return;
-  const t = cur.t;
-  if (hold) spawn(hold); else spawn(pull());
-  hold = t; canHold = false;
-  drawSide();
-}
-function ghostY() { let y = cur.y; while (!collides(cur.m, cur.x, y + 1)) y++; return y; }
-function hardDrop() { cur.y = ghostY(); lock(); }
-
-function lock() {
-  let visible = false;
-  cur.m.forEach((r, y) => r.forEach((v, x) => {
-    if (!v) return;
-    const by = cur.y + y;
-    if (by >= 0) board[by][cur.x + x] = cur.t;
-    if (by >= HID) visible = true;
-  }));
-  pieces++;
-  if (!visible) { end(); return; }
-  for (let y = ROWS - 1; y >= 0; y--) {
-    if (board[y].every(Boolean)) { board.splice(y, 1); board.unshift(Array(COLS).fill(null)); lines++; y++; }
-  }
-  canHold = true;
-  spawn(pull());
-  drawSide(); stats();
-}
-
-// Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 13;
-$('ver').textContent = 'v' + VERSION;
-
-// `over` is true whenever no game is running: before the first start and after a top-out
-function showMenu(title, sub, btn) {
-  $('overTitle').textContent = title; $('overSub').textContent = sub; $('startBtn').textContent = btn;
-  $('over').hidden = false;
-}
-function end() {
-  over = true; cur = null;
-  showMenu('FIM DE JOGO', `${lines} linhas · ${$('time').textContent}`, 'JOGAR DE NOVO');
-}
-function idle() {
-  board = newBoard(); queue = []; hold = null; canHold = true; cur = null;
-  lines = 0; pieces = 0; elapsed = 0; over = true;
-  showMenu('7ETRIS', '', 'COMEÇAR');
-}
-
-function reset() {
-  board = newBoard(); queue = []; hold = null; canHold = true;
-  lines = 0; pieces = 0; elapsed = 0; over = false;
-  $('over').hidden = true;
-  spawn(pull());
-  drawSide(); stats();
-}
-// pointerup, not click: touches have their default cancelled, so iOS never sends a click
-$('startBtn').addEventListener('pointerup', reset);
-
-// Gentle speed-up: 1 row/second, 15% faster every 10 lines
-const gravity = () => Math.max(80, 1000 * Math.pow(0.85, Math.floor(lines / 10)));
-
-// ---------- input ----------
-const held = {};
-// Only the auto-repeating directions track "held"; A, B and hard drop act on every press,
-// so a release iOS never reports can't leave them stuck and swallow the next tap.
-const REPEATS = ['left', 'right', 'down'];
-function press(k) {
-  if (REPEATS.includes(k)) held[k] = { next: performance.now() + DAS };
-  if (over) { if (k === 'a') reset(); return; }
-  switch (k) {
-    case 'left': tryMove(-1, 0); break;
-    case 'right': tryMove(1, 0); break;
-    case 'down': tryMove(0, 1); dropAcc = 0; break;
-    case 'up': hardDrop(); break;
-    case 'a': rotate(); break;
-    case 'b': holdPiece(); break;
-  }
-}
-function release(k) { delete held[k]; }
-
-const dpad = $('dpad');
-let dpDir = null, dpPointer = null;
-// Any touch on the pad (centre and corners included) picks the nearest arrow. While sliding,
-// a small centre zone keeps the current arrow so a wobbly thumb doesn't flicker.
-// Up is hard drop and can't be undone, so it needs a clearly upward touch.
-function dirFrom(e) {
-  const r = dpad.getBoundingClientRect();
-  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-  if (dpDir && Math.hypot(dx, dy) < r.width * 0.08) return dpDir;
-  if (-dy > Math.abs(dx) * 1.3) return 'up';
-  if (dy > Math.abs(dx)) return 'down';
-  return dx < 0 ? 'left' : 'right';
-}
-function setDir(d) {
-  if (d === dpDir) return;
-  if (dpDir) release(dpDir);
-  dpDir = d;
-  if (d) { press(d); dpad.dataset.dir = d; } else delete dpad.dataset.dir;
-}
-dpad.addEventListener('pointerdown', e => { e.preventDefault(); dpPointer = e.pointerId; try { dpad.setPointerCapture(e.pointerId); } catch (_) {} setDir(dirFrom(e)); });
-dpad.addEventListener('pointermove', e => { if (e.pointerId === dpPointer) setDir(dirFrom(e)); });
-['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => dpad.addEventListener(t, e => { if (e.pointerId === dpPointer) { dpPointer = null; setDir(null); } }));
-
-document.querySelectorAll('[data-key]').forEach(b => {
-  const k = b.dataset.key;
-  b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (_) {} b.classList.add('pressed'); press(k); });
-  const up = () => { b.classList.remove('pressed'); release(k); };
-  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => b.addEventListener(t, up));
-});
-
-const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'up', ' ': 'up', x: 'a', X: 'a', c: 'b', C: 'b', Shift: 'b' };
-addEventListener('keydown', e => { const k = KEYMAP[e.key]; if (!k) return; e.preventDefault(); if (!e.repeat) press(k); });
-addEventListener('keyup', e => { const k = KEYMAP[e.key]; if (k) release(k); });
-
-// Cancelling every touch's default stops iOS from scrolling, zooming, or showing the
-// text magnifier on a long press. Pointer events still arrive, so the controls keep working.
-document.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
-document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
-document.addEventListener('gesturestart', e => e.preventDefault());
-
-// ---------- drawing ----------
-const css = getComputedStyle(document.documentElement);
-const PANEL = css.getPropertyValue('--panel').trim(), GRID = css.getPropertyValue('--grid').trim();
-let cell = 18, bctx, hctx, nctx;
-
-function sizeCanvas(cv, w, h) {
-  const d = Math.min(window.devicePixelRatio || 1, 3);
-  cv.width = Math.round(w * d); cv.height = Math.round(h * d);
-  cv.style.width = w + 'px'; cv.style.height = h + 'px';
-  const c = cv.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0);
-  return c;
-}
-function resize() {
-  const f = $('field');
-  cell = Math.max(10, Math.floor(Math.min((f.clientHeight - 1) / VIS, (f.clientWidth - 4) / 14.4)));
-  f.style.setProperty('--c', cell + 'px');
-  const sw = Math.round(cell * 1.9) - 2;
-  bctx = sizeCanvas($('board'), cell * COLS, cell * VIS);
-  hctx = sizeCanvas($('hold'), sw, Math.round(cell * 1.5));
-  nctx = sizeCanvas($('next'), sw, Math.round(cell * 1.5) * PREVIEW);
-  drawSide();
-}
-
-function block(ctx, x, y, s, color, alpha = 1) {
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = color;
-  ctx.fillRect(x, y, s, s);
-  if (alpha === 1) {
-    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x, y, s, Math.max(2, s * 0.14));
-    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(x, y + s - Math.max(2, s * 0.14), s, Math.max(2, s * 0.14));
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawBoard() {
-  const c = cell, ctx = bctx;
-  ctx.fillStyle = PANEL; ctx.fillRect(0, 0, c * COLS, c * VIS);
-  ctx.fillStyle = GRID;
-  for (let x = 1; x < COLS; x++) ctx.fillRect(x * c, 0, 1, c * VIS);
-  for (let y = 1; y < VIS; y++) ctx.fillRect(0, y * c, c * COLS, 1);
-  for (let y = HID; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    const t = board[y][x];
-    if (t) block(ctx, x * c, (y - HID) * c, c, over ? '#4a4f59' : COLORS[t]);
-  }
-  if (!cur) return;
-  const gy = ghostY();
-  cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && gy + y >= HID) block(ctx, (cur.x + x) * c, (gy + y - HID) * c, c, COLORS[cur.t], 0.28); }));
-  cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && cur.y + y >= HID) block(ctx, (cur.x + x) * c, (cur.y + y - HID) * c, c, COLORS[cur.t]); }));
-}
-
-function mini(ctx, t, cx, cy, s, color) {
-  const m = SHAPES[t];
-  const rows = m.map((r, y) => r.some(Boolean) ? y : -1).filter(y => y >= 0);
-  const cols = m[0].map((_, x) => m.some(r => r[x]) ? x : -1).filter(x => x >= 0);
-  const ox = Math.round(cx - cols.length * s / 2), oy = Math.round(cy - rows.length * s / 2);
-  rows.forEach((y, ry) => cols.forEach((x, rx) => { if (m[y][x]) block(ctx, ox + rx * s, oy + ry * s, s, color); }));
-}
-function drawSide() {
-  if (!hctx || !board) return;
-  const w = parseFloat($('hold').style.width), h = parseFloat($('hold').style.height), s = Math.max(4, Math.floor(cell * 0.42));
-  hctx.fillStyle = PANEL; hctx.fillRect(0, 0, w, h);
-  if (hold) mini(hctx, hold, w / 2, h / 2, s, canHold ? COLORS[hold] : '#4a4f59');
-  const nh = parseFloat($('next').style.height);
-  nctx.fillStyle = PANEL; nctx.fillRect(0, 0, w, nh);
-  queue.slice(0, PREVIEW).forEach((t, i) => mini(nctx, t, w / 2, h * i + h / 2, s, COLORS[t]));
-}
-
-function stats() {
-  $('lines').textContent = lines;
-  $('pieces').textContent = pieces;
-  const s = Math.floor(elapsed / 1000);
-  $('time').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-}
-
-// ---------- loop ----------
-let last = performance.now(), lastSec = -1;
-function frame(now) {
-  const dt = Math.min(50, now - last); last = now;
-  if (!over && cur) {
-    elapsed += dt;
-    for (const k of ['left', 'right']) {
-      const h = held[k];
-      if (h && now >= h.next) { tryMove(k === 'left' ? -1 : 1, 0); h.next = now + ARR; }
-    }
-    const iv = held.down ? Math.min(gravity(), SOFT) : gravity();
-    if (collides(cur.m, cur.x, cur.y + 1)) {
-      dropAcc = 0; lockT += dt;
-      if (lockT >= LOCK) lock();
-    } else {
-      lockT = 0; dropAcc += dt;
-      while (cur && dropAcc >= iv) { dropAcc -= iv; if (!tryMove(0, 1)) { dropAcc = 0; break; } }
-    }
-    const sec = Math.floor(elapsed / 1000);
-    if (sec !== lastSec) { lastSec = sec; stats(); }
-  }
-  if (bctx) drawBoard();
-  requestAnimationFrame(frame);
-}
-
-idle();
-resize(); stats();
-requestAnimationFrame(t => { last = t; frame(t); });
-addEventListener('resize', resize);
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize).catch(() => {});
-})();
-</script>
+<script type="module" src="main.js"></script>
 <script>
 if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 </script>
