@@ -3,6 +3,7 @@
 // iOS only lets audio start inside a tap, so main.js calls unlock() on every touch.
 
 let ctx = null, musicOut, sfxOut, noise, pulse25, pulse12;
+let silentSince = 0; // when a tap first found the sound not running (0: it's fine)
 const opts = { music: true, musicVol: 60, sfx: true, sfxVol: 80 };
 
 export function configure(o) {
@@ -16,25 +17,37 @@ function applyVolumes() {
   sfxOut.gain.value = opts.sfx ? (opts.sfxVol / 100) * 0.8 : 0;
 }
 
+// iOS suspends or "interrupts" the audio when a notification, a call, the lock screen or
+// leaving the app gets in the way, and resume() sometimes never comes back. So each tap
+// resumes it, and a tap that finds it still silent a second later rebuilds the sound.
 export function unlock() {
-  if (!ctx) {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    // 'ambient' mixes with other apps' audio and follows the silent switch, like games do
-    try { navigator.audioSession.type = 'ambient'; } catch (_) {}
-    ctx = new AC();
-    musicOut = ctx.createGain();
-    sfxOut = ctx.createGain();
-    musicOut.connect(ctx.destination);
-    sfxOut.connect(ctx.destination);
-    noise = ctx.createBuffer(1, ctx.sampleRate / 4, ctx.sampleRate);
-    const d = noise.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    pulse25 = pulseWave(0.25);
-    pulse12 = pulseWave(0.125);
-    applyVolumes();
-  }
+  if (!ctx || ctx.state === 'closed') return build();
+  if (ctx.state === 'running') { silentSince = 0; return; }
+  if (!silentSince) silentSince = performance.now();
+  else if (performance.now() - silentSince > 1000) return build();
+  ctx.resume().catch(() => {});
+}
+
+function build() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (ctx) ctx.close().catch(() => {});
+  silentSince = 0;
+  // 'ambient' mixes with other apps' audio and follows the silent switch, like games do
+  try { navigator.audioSession.type = 'ambient'; } catch (_) {}
+  ctx = new AC();
+  musicOut = ctx.createGain();
+  sfxOut = ctx.createGain();
+  musicOut.connect(ctx.destination);
+  sfxOut.connect(ctx.destination);
+  noise = ctx.createBuffer(1, ctx.sampleRate / 4, ctx.sampleRate);
+  const d = noise.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  pulse25 = pulseWave(0.25);
+  pulse12 = pulseWave(0.125);
+  applyVolumes();
   if (ctx.state !== 'running') ctx.resume().catch(() => {});
+  nextAt = ctx.currentTime + 0.06; // a rebuilt clock starts at zero; music carries on from here
 }
 
 function tone(out, freq, t, dur, type, vol, to) {
@@ -227,6 +240,8 @@ export function musicStop() {
 }
 
 function schedule() {
+  // Back from a pause in the audio: skip what was missed instead of playing it all at once
+  if (nextAt < ctx.currentTime) nextAt = ctx.currentTime + 0.05;
   while (nextAt < ctx.currentTime + 0.3) {
     playStep(SONG[step], nextAt);
     nextAt += EIGHTH;
