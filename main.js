@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 43;
+const VERSION = 44;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -374,6 +374,27 @@ for (const pack of audio.SOUND_PACKS) {
 // ---------- settings ----------
 on('openSettings', () => show('settingsScr'));
 on('settingsBack', () => show('menu'));
+
+// Backup: every saved key packed into one code to paste back later, because iOS wipes a
+// home-screen app's storage when its shortcut is removed
+const SAVED = ['7etris-records', '7etris-audio', '7etris-look', '7etris-pad-2'];
+on('dataCopy', async () => {
+  const data = {};
+  for (const key of SAVED) { try { const v = localStorage.getItem(key); if (v) data[key] = JSON.parse(v); } catch (_) {} }
+  const code = '7ETRIS-' + btoa(JSON.stringify(data));
+  try { await navigator.clipboard.writeText(code); } catch (_) { prompt('Copie este código:', code); return; }
+  $('dataCopy').textContent = 'COPIADO!';
+  setTimeout(() => { $('dataCopy').textContent = 'COPIAR'; }, 1500);
+});
+on('dataRestore', () => {
+  const code = prompt('Cole o código copiado:');
+  if (!code) return;
+  let data = null;
+  try { data = JSON.parse(atob(code.trim().replace(/^7ETRIS-/, ''))); } catch (_) {}
+  if (!data || typeof data !== 'object' || !SAVED.some(key => key in data)) { alert('Código inválido.'); return; }
+  for (const key of SAVED) if (key in data) save(key, data[key]);
+  location.reload();
+});
 
 // ---------- look: skins and light/dark ----------
 function setLook(patch) {
