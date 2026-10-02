@@ -4,7 +4,7 @@
 
 let ctx = null, musicOut, sfxOut, noise, pulse25, pulse12;
 let silentSince = 0; // when a tap first found the sound not running (0: it's fine)
-const opts = { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false };
+const opts = { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false, pack: 'classic' };
 
 export function configure(o) {
   Object.assign(opts, o);
@@ -94,51 +94,81 @@ function pulseWave(duty) {
 }
 
 // ---------- effects ----------
-// Combo notes climb a major scale from C5, one step per consecutive clearing piece
+// Sound packs, like Jstris' sound skins: each one plays every game event its own way.
+// Every pack's 'clear' climbs a major scale from C5, one step per consecutive clearing piece
+// (the combo), and starts again at the bottom when a piece locks without clearing.
 const COMBO_SCALE = [0, 2, 4, 5, 7, 9, 11];
+const comboHz = combo => {
+  const step = Math.min(combo, 20);
+  return 523.25 * 2 ** ((COMBO_SCALE[step % 7] + 12 * Math.floor(step / 7)) / 12);
+};
+const notes = (fs, step, dur, type, vol, t) => fs.forEach((f, i) => tone(sfxOut, f, t + i * step, dur, type, vol));
+
+const PACKS = {
+  classic: {
+    name: 'CLÁSSICO',
+    move: t => hiss(sfxOut, t, 0.03, 3200, 0.5),
+    rotate: t => { hiss(sfxOut, t, 0.03, 4500, 0.35); tone(sfxOut, 900, t, 0.05, 'triangle', 0.18, 1400); },
+    hold: t => { tone(sfxOut, 600, t, 0.07, 'sine', 0.25, 900); tone(sfxOut, 900, t + 0.06, 0.08, 'sine', 0.2, 1200); },
+    lock: t => { tone(sfxOut, 240, t, 0.07, 'sine', 0.4, 120); hiss(sfxOut, t, 0.04, 1500, 0.25); },
+    drop: t => { tone(sfxOut, 180, t, 0.14, 'sine', 0.7, 45); hiss(sfxOut, t, 0.09, 900, 0.5, 'lowpass'); },
+    clear: (t, f) => { tone(sfxOut, f, t, 0.16, 'square', 0.12); tone(sfxOut, f * 1.5, t + 0.03, 0.14, 'triangle', 0.14); hiss(sfxOut, t, 0.12, 6000, 0.1, 'highpass'); },
+    over: t => notes([392, 330, 262, 196], 0.13, 0.22, 'square', 0.12, t),
+    win: t => { notes([523, 659, 784, 1047], 0.09, 0.25, 'square', 0.12, t); notes([523, 659, 784], 0, 0.6, 'triangle', 0.18, t + 0.4); },
+  },
+  bit: {
+    name: '8-BIT',
+    move: t => tone(sfxOut, 880, t, 0.025, 'square', 0.07),
+    rotate: t => tone(sfxOut, 1320, t, 0.04, 'square', 0.07, 1760),
+    hold: t => notes([660, 990], 0.04, 0.04, 'square', 0.07, t),
+    lock: t => tone(sfxOut, 220, t, 0.05, 'square', 0.1),
+    drop: t => { tone(sfxOut, 330, t, 0.09, 'square', 0.1, 110); hiss(sfxOut, t, 0.06, 1200, 0.25, 'lowpass'); },
+    clear: (t, f) => notes([f, f * 1.25, f * 1.5, f * 2], 0.03, 0.05, 'square', 0.08, t),
+    over: t => notes([494, 466, 440, 415, 392, 370, 349, 330], 0.08, 0.1, 'square', 0.09, t),
+    win: t => notes([523, 659, 784, 1047, 784, 1047], 0.08, 0.12, 'square', 0.09, t),
+  },
+  soft: {
+    name: 'SUAVE',
+    move: t => tone(sfxOut, 600, t, 0.05, 'sine', 0.12),
+    rotate: t => tone(sfxOut, 880, t, 0.08, 'sine', 0.14, 1100),
+    hold: t => notes([523, 784], 0.06, 0.12, 'sine', 0.14, t),
+    lock: t => tone(sfxOut, 196, t, 0.12, 'sine', 0.3),
+    drop: t => tone(sfxOut, 140, t, 0.2, 'sine', 0.45, 60),
+    clear: (t, f) => { tone(sfxOut, f, t, 0.45, 'sine', 0.2); tone(sfxOut, f * 2, t, 0.3, 'sine', 0.08); },
+    over: t => notes([440, 349, 294, 220], 0.18, 0.4, 'sine', 0.18, t),
+    win: t => notes([523, 659, 784, 1047], 0.12, 0.6, 'sine', 0.16, t),
+  },
+  wood: {
+    name: 'MADEIRA',
+    move: t => { tone(sfxOut, 1200, t, 0.015, 'triangle', 0.25); hiss(sfxOut, t, 0.015, 2500, 0.3); },
+    rotate: t => { tone(sfxOut, 1800, t, 0.02, 'triangle', 0.25); hiss(sfxOut, t, 0.02, 4000, 0.2); },
+    hold: t => { tone(sfxOut, 900, t, 0.03, 'triangle', 0.3); tone(sfxOut, 1350, t + 0.05, 0.03, 'triangle', 0.3); },
+    lock: t => { tone(sfxOut, 400, t, 0.03, 'triangle', 0.45); hiss(sfxOut, t, 0.03, 900, 0.3); },
+    drop: t => { tone(sfxOut, 160, t, 0.06, 'triangle', 0.6); hiss(sfxOut, t, 0.05, 600, 0.45, 'lowpass'); },
+    clear: (t, f) => { tone(sfxOut, f, t, 0.12, 'triangle', 0.35); tone(sfxOut, f * 4, t, 0.04, 'sine', 0.08); },
+    over: t => notes([300, 250, 200, 150], 0.12, 0.06, 'triangle', 0.4, t),
+    win: t => notes([523, 659, 784, 1047, 1319], 0.07, 0.12, 'triangle', 0.32, t),
+  },
+  space: {
+    name: 'ESPACIAL',
+    move: t => tone(sfxOut, 1500, t, 0.03, 'sine', 0.1, 1200),
+    rotate: t => tone(sfxOut, 400, t, 0.07, 'sawtooth', 0.05, 800),
+    hold: t => tone(sfxOut, 300, t, 0.15, 'sine', 0.15, 1200),
+    lock: t => tone(sfxOut, 300, t, 0.08, 'sine', 0.25, 150),
+    drop: t => tone(sfxOut, 200, t, 0.22, 'sawtooth', 0.08, 40),
+    clear: (t, f) => { tone(sfxOut, f / 2, t, 0.14, 'sine', 0.2, f); tone(sfxOut, f * 2, t + 0.05, 0.2, 'sine', 0.06); },
+    over: t => tone(sfxOut, 600, t, 0.9, 'sawtooth', 0.07, 60),
+    win: t => [523, 659, 784].forEach(f => tone(sfxOut, f / 2, t, 0.7, 'sine', 0.12, f)),
+  },
+};
+export const SOUND_PACKS = Object.entries(PACKS).map(([id, p]) => ({ id, name: p.name }));
 
 // `combo` (for 'clear'): how many clearing pieces in a row came before this one
 export function sfx(name, combo = 0) {
   if (!ctx || ctx.state !== 'running') return;
-  const t = ctx.currentTime;
-  switch (name) {
-    case 'move':
-      hiss(sfxOut, t, 0.03, 3200, 0.5);
-      break;
-    case 'rotate':
-      hiss(sfxOut, t, 0.03, 4500, 0.35);
-      tone(sfxOut, 900, t, 0.05, 'triangle', 0.18, 1400);
-      break;
-    case 'hold':
-      tone(sfxOut, 600, t, 0.07, 'sine', 0.25, 900);
-      tone(sfxOut, 900, t + 0.06, 0.08, 'sine', 0.2, 1200);
-      break;
-    case 'lock':
-      tone(sfxOut, 240, t, 0.07, 'sine', 0.4, 120);
-      hiss(sfxOut, t, 0.04, 1500, 0.25);
-      break;
-    case 'drop':
-      tone(sfxOut, 180, t, 0.14, 'sine', 0.7, 45);
-      hiss(sfxOut, t, 0.09, 900, 0.5, 'lowpass');
-      break;
-    case 'clear': {
-      const step = Math.min(combo, 20);
-      const f = 523.25 * 2 ** ((COMBO_SCALE[step % 7] + 12 * Math.floor(step / 7)) / 12);
-      tone(sfxOut, f, t, 0.16, 'square', 0.12);
-      tone(sfxOut, f * 1.5, t + 0.03, 0.14, 'triangle', 0.14); // a fifth above, for a chime
-      hiss(sfxOut, t, 0.12, 6000, 0.1, 'highpass');
-      break;
-    }
-    case 'over':
-      [392, 330, 262, 196].forEach((f, i) => tone(sfxOut, f, t + i * 0.13, 0.22, 'square', 0.12));
-      break;
-    case 'win':
-      [523, 659, 784, 1047].forEach((f, i) => tone(sfxOut, f, t + i * 0.09, 0.25, 'square', 0.12));
-      [523, 659, 784].forEach(f => tone(sfxOut, f, t + 0.4, 0.6, 'triangle', 0.18));
-      break;
-  }
+  const pack = PACKS[opts.pack] || PACKS.classic;
+  pack[name](ctx.currentTime, comboHz(combo));
 }
-
 // ---------- music ----------
 // Korobeiniki arranged like a Game Boy track, in the console's four kinds of voice: the lead
 // on a 25% pulse wave (with vibrato on long notes), harmony on a thin 12.5% pulse, bass on a

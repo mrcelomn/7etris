@@ -73,12 +73,69 @@ function gameboy(ctx, x, y, s, c, t) {
   }
 }
 
+// Rounded rectangle path (arcTo works on every iOS version that runs the game)
+function rounded(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// Every piece in the app's red; `t` is null for the grey board after a loss
+const MONO = '#a3245a';
+function mono(ctx, x, y, s, c, t) { classic(ctx, x, y, s, t ? MONO : c); }
+
+// A different grey per piece with a black rim, readable on both the dark and the light theme
+const GREYS = { I: '#f2f2f2', O: '#c4c4c4', T: '#8f8f8f', S: '#dadada', Z: '#6e6e6e', J: '#adadad', L: '#7f7f7f', G: '#5a5a5a', X: '#333333' };
+function greys(ctx, x, y, s, c, t) {
+  const w = Math.max(1, Math.round(s * 0.08));
+  ctx.fillStyle = '#111111'; ctx.fillRect(x, y, s, s);
+  ctx.fillStyle = t ? GREYS[t] : c; ctx.fillRect(x + w, y + w, s - 2 * w, s - 2 * w);
+}
+
+// Bright rim on a dark core, like lit tubes
+function neon(ctx, x, y, s, c) {
+  const a = ctx.globalAlpha, w = Math.max(2, Math.round(s * 0.12));
+  ctx.fillStyle = c;
+  ctx.globalAlpha = a * 0.18; ctx.fillRect(x, y, s, s);
+  ctx.globalAlpha = a;
+  ctx.fillRect(x + 1, y + 1, s - 2, w); ctx.fillRect(x + 1, y + s - 1 - w, s - 2, w);
+  ctx.fillRect(x + 1, y + 1, w, s - 2); ctx.fillRect(x + s - 1 - w, y + 1, w, s - 2);
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  ctx.fillRect(x + w + 1, y + w + 1, Math.max(1, s * 0.12), Math.max(1, s * 0.12));
+}
+
+// Soft colours, slightly rounded, with a gap between blocks
+function pastel(ctx, x, y, s, c) {
+  ctx.fillStyle = shade(c, 0.45);
+  rounded(ctx, x + 1, y + 1, s - 2, s - 2, s * 0.18);
+  ctx.fill();
+}
+
+// Very round blocks with a shine on top
+function jelly(ctx, x, y, s, c) {
+  ctx.fillStyle = c;
+  rounded(ctx, x + 1, y + 1, s - 2, s - 2, s * 0.32);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.35)';
+  rounded(ctx, x + s * 0.2, y + s * 0.14, s * 0.6, s * 0.26, s * 0.13);
+  ctx.fill();
+}
+
 export const SKINS = [
   { id: 'classic', name: 'CLÁSSICA', draw: classic },
   { id: 'flat', name: 'PLANA', draw: flat },
   { id: 'glossy', name: 'BRILHO', draw: glossy },
   { id: 'bevel', name: 'RELEVO', draw: bevel },
   { id: 'outline', name: 'CONTORNO', draw: outline },
+  { id: 'mono', name: 'MONOCROMÁTICA', draw: mono },
+  { id: 'greys', name: 'PRETO E BRANCO', draw: greys },
+  { id: 'neon', name: 'NEON', draw: neon },
+  { id: 'pastel', name: 'PASTEL', draw: pastel },
+  { id: 'jelly', name: 'GELATINA', draw: jelly },
   { id: 'gameboy', name: 'GAME BOY', draw: gameboy },
 ];
 const BY_ID = Object.fromEntries(SKINS.map(k => [k.id, k]));

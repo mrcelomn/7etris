@@ -59,18 +59,12 @@
 </div>
 
 <div class="ui screen" id="menu" hidden>
-  <div class="theme" role="group" aria-label="Tema">
-    <button data-theme-set="light" aria-label="Modo claro">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
-    </button>
-    <button data-theme-set="dark" aria-label="Modo escuro">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
-    </button>
-  </div>
+  <button class="gear" id="openSettings" aria-label="Ajustes">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
   <div class="panel">
     <h1><span>7</span>ETRIS</h1>
     <div class="group">
-      <div class="glabel">JOGAR</div>
       <button class="row" aria-controls="marathonList" aria-expanded="false">MARATONA<span class="chev" aria-hidden="true"></span></button>
       <div class="cascade" id="marathonList" hidden>
         <button class="row" data-mode="20">20 LINHAS<span class="rec" data-rec="20">—</span></button>
@@ -89,13 +83,29 @@
       </div>
       <button class="row" data-mode="free">LIVRE</button>
     </div>
+    <div class="ver" id="ver"></div>
+  </div>
+</div>
+
+<div class="ui screen" id="settingsScr" hidden>
+  <div class="panel">
+    <h2>AJUSTES</h2>
     <div class="group">
-      <div class="glabel">AJUSTES</div>
       <button class="row" id="openSkins">SKINS<span class="chev side" aria-hidden="true"></span></button>
       <button class="row" id="openSound">ÁUDIO<span class="chev side" aria-hidden="true"></span></button>
       <button class="row" id="openPad">CONTROLES<span class="chev side" aria-hidden="true"></span></button>
+      <div class="row static">TEMA
+        <div class="theme" role="group" aria-label="Tema">
+          <button data-theme-set="light" aria-label="Modo claro">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
+          </button>
+          <button data-theme-set="dark" aria-label="Modo escuro">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="ver" id="ver"></div>
+    <button class="row primary" id="settingsBack">VOLTAR</button>
   </div>
 </div>
 
@@ -137,6 +147,10 @@
     <div class="setting">
       <div class="setting-head">EFEITOS<button class="toggle" id="sfxOn" aria-label="Efeitos ligados"></button></div>
       <input type="range" id="sfxVol" min="0" max="100" aria-label="Volume dos efeitos">
+    </div>
+    <div class="group">
+      <div class="glabel">SONS DAS PEÇAS</div>
+      <div class="group" id="packList"></div>
     </div>
     <div class="setting">
       <div class="setting-head">TOCAR NO SILENCIOSO<button class="toggle" id="silentOn" aria-label="Tocar com o iPhone no silencioso"></button></div>

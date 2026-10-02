@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 35;
+const VERSION = 36;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -37,7 +37,7 @@ function save(key, value) {
 }
 // Best marathon time in ms keyed by line goal ('20'…), and battle wins keyed by mode ('ai-easy'…)
 const records = load('7etris-records', {});
-const sound = load('7etris-audio', { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false });
+const sound = load('7etris-audio', { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false, pack: 'classic' });
 const look = load('7etris-look', { skin: 'classic', theme: 'dark' });
 audio.configure(sound);
 
@@ -133,7 +133,7 @@ function raiseSolids() {
 }
 
 // ---------- flow ----------
-const SCREENS = ['menu', 'soundScr', 'skinScr', 'duelScr', 'pauseScr', 'result'];
+const SCREENS = ['menu', 'settingsScr', 'soundScr', 'skinScr', 'duelScr', 'pauseScr', 'result'];
 function show(id) {
   SCREENS.forEach(s => { $(s).hidden = s !== id; });
   // Coming back to the menu always finds MARATONA, DUELOS and IA folded up
@@ -315,6 +315,7 @@ function renderSound() {
   $('silentOn').setAttribute('aria-pressed', sound.silentOk);
   $('musicVol').value = sound.musicVol;
   $('sfxVol').value = sound.sfxVol;
+  document.querySelectorAll('[data-pack]').forEach(b => b.classList.toggle('on', b.dataset.pack === sound.pack));
 }
 function setSound(patch) {
   Object.assign(sound, patch);
@@ -324,13 +325,32 @@ function setSound(patch) {
 }
 // The music plays while this screen is open, so volume changes can be heard
 on('openSound', () => { renderSound(); show('soundScr'); audio.musicPlay(true); });
-on('soundBack', () => { audio.musicStop(); show('menu'); });
+on('soundBack', () => { audio.musicStop(); show('settingsScr'); });
 on('musicOn', () => setSound({ music: !sound.music }));
 on('sfxOn', () => { setSound({ sfx: !sound.sfx }); audio.sfx('rotate'); });
 on('silentOn', () => setSound({ silentOk: !sound.silentOk }));
 $('musicVol').addEventListener('input', e => setSound({ musicVol: +e.target.value }));
 $('sfxVol').addEventListener('input', e => setSound({ sfxVol: +e.target.value }));
 $('sfxVol').addEventListener('change', () => audio.sfx('lock'));
+
+// One row per sound pack; picking one plays a short sample of it (a move, a rotate, a combo)
+for (const pack of audio.SOUND_PACKS) {
+  const b = document.createElement('button');
+  b.className = 'row skin';
+  b.dataset.pack = pack.id;
+  b.textContent = pack.name;
+  $('packList').append(b);
+  b.addEventListener('click', () => {
+    setSound({ pack: pack.id });
+    audio.sfx('move');
+    setTimeout(() => audio.sfx('rotate'), 120);
+    [0, 1, 2].forEach(c => setTimeout(() => audio.sfx('clear', c), 300 + c * 180));
+  });
+}
+
+// ---------- settings ----------
+on('openSettings', () => show('settingsScr'));
+on('settingsBack', () => show('menu'));
 
 // ---------- look: skins and light/dark ----------
 function setLook(patch) {
@@ -366,7 +386,7 @@ for (const skin of SKINS) {
   b.addEventListener('click', () => setLook({ skin: skin.id }));
 }
 on('openSkins', () => show('skinScr'));
-on('skinBack', () => show('menu'));
+on('skinBack', () => show('settingsScr'));
 
 // ---------- controls ----------
 const held = {};
@@ -395,7 +415,7 @@ initPad({ press, release }, savedPad);
 on('openPad', () => {
   state = 'edit';
   show(null);
-  editPad(layout => { save('7etris-pad-2', layout); openMenu(); });
+  editPad(layout => { save('7etris-pad-2', layout); state = 'menu'; show('settingsScr'); });
 });
 
 const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'up', ' ': 'up', x: 'a', X: 'a', c: 'b', C: 'b', Shift: 'b' };

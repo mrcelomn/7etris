@@ -198,11 +198,24 @@ canvas { display: block; }
 [aria-expanded="true"] .chev { transform: rotate(-135deg); margin-top: 4px; }
 .cascade { display: flex; flex-direction: column; gap: 8px; padding-left: 14px; }
 
-/* Sun / moon theme switch in the menu's top-right corner */
-.theme {
+/* Gear in the menu's top-right corner, opening the settings */
+.gear {
   position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 16px;
+  width: 42px; height: 42px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: var(--key); border: 1px solid var(--key-hi); color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+}
+.gear:active { background: var(--key-hi); }
+.gear svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* A settings row that isn't a button itself (it holds the sun / moon switch) */
+.row.static { cursor: default; padding-block: 9px; }
+.row.static:active { background: var(--key); transform: none; }
+
+/* Sun / moon theme switch */
+.theme {
   display: flex; gap: 2px; padding: 3px; border-radius: 999px;
-  background: var(--key); border: 1px solid var(--key-hi);
+  background: var(--bg); border: 1px solid var(--key-hi);
 }
 .theme button {
   width: 34px; height: 30px; padding: 0; border: 0; border-radius: 999px; cursor: pointer;
