@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 38;
+const VERSION = 39;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -39,7 +39,18 @@ function save(key, value) {
 const records = load('7etris-records', {});
 const sound = load('7etris-audio', { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false, pack: 'classic' });
 const look = load('7etris-look', { skin: 'classic', theme: 'dark' });
-audio.configure(sound);
+
+// CLÁSSICO means "the look's own sound": the Game Boy and Obra Dinn skins have their own music
+// and effects, every other skin the game's default. Any other pack plays its effects over the
+// default music, whatever the look.
+const SKIN_SOUND = { gameboy: { pack: 'bit', song: 'gameboy' }, obra: { pack: 'obra', song: 'obra' } };
+function syncAudio() {
+  if (!audio.SOUND_PACKS.some(p => p.id === sound.pack)) sound.pack = 'classic'; // e.g. a pack since removed
+  const own = sound.pack === 'classic' && SKIN_SOUND[look.skin];
+  audio.configure({ ...sound, pack: own ? own.pack : sound.pack });
+  audio.setSong(own ? own.song : 'modern');
+}
+syncAudio();
 
 // ---------- game state ----------
 let state = 'menu'; // menu | play | pause | done | edit
@@ -319,7 +330,7 @@ function renderSound() {
 }
 function setSound(patch) {
   Object.assign(sound, patch);
-  audio.configure(sound);
+  syncAudio();
   save('7etris-audio', sound);
   renderSound();
 }
@@ -363,8 +374,7 @@ function setLook(patch) {
 function applyLook() {
   document.documentElement.dataset.theme = look.theme;
   document.documentElement.dataset.skin = look.skin;
-  // The two whole-app skins bring their own soundtrack
-  audio.setSong(look.skin === 'gameboy' || look.skin === 'obra' ? look.skin : 'modern');
+  syncAudio(); // with CLÁSSICO, the Game Boy and Obra Dinn looks bring their own sound
   readPalette();
   document.querySelector('meta[name="theme-color"]').content = css().getPropertyValue('--bg').trim();
   document.querySelectorAll('[data-theme-set]').forEach(b => b.setAttribute('aria-pressed', b.dataset.themeSet === look.theme));

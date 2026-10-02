@@ -228,8 +228,10 @@ const PACKS = {
     over: t => keys([440, 349, 294, 220, 147], 0.16, 1.2, 0.2, t),
     win: t => { keys([523, 659, 784, 1047], 0.1, 1, 0.18, t); keys([262, 330, 392], 0, 1.6, 0.14, t + 0.4); },
   },
+  // Not in the list: it's what CLÁSSICO plays with the Obra Dinn skin (see main.js)
   obra: {
     name: 'OBRA DINN',
+    hidden: true,
     move: t => hiss(sfxOut, t, 0.04, 900, 0.35),
     rotate: t => { hiss(sfxOut, t, 0.05, 1600, 0.3); tone(sfxOut, 220, t, 0.05, 'triangle', 0.15, 180); },
     hold: t => bell(sfxOut, 880, t, 1, 0.07),
@@ -251,7 +253,7 @@ const PACKS = {
     win: t => [523, 659, 784].forEach(f => tone(sfxOut, f / 2, t, 0.7, 'sine', 0.12, f)),
   },
 };
-export const SOUND_PACKS = Object.entries(PACKS).map(([id, p]) => ({ id, name: p.name }));
+export const SOUND_PACKS = Object.entries(PACKS).filter(([, p]) => !p.hidden).map(([id, p]) => ({ id, name: p.name }));
 
 // `combo` (for 'clear'): how many clearing pieces in a row came before this one
 export function sfx(name, combo = 0) {

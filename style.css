@@ -171,7 +171,13 @@ canvas { display: block; }
   box-sizing: border-box;
 }
 .panel { margin: auto; width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 22px; }
-.screen h1 { margin: 0; font-size: 52px; letter-spacing: .08em; text-align: center; line-height: 1; }
+/* The game's name in big pixel type, extruded in two steps like a stack of blocks */
+.screen h1 {
+  --title-depth: color-mix(in srgb, var(--accent) 55%, transparent);
+  margin: 0; text-align: center;
+  font: 400 104px/.82 "VT323", ui-monospace, monospace; letter-spacing: .04em;
+  text-shadow: 3px 3px 0 var(--title-depth), 6px 6px 0 var(--title-depth);
+}
 .screen h1 span { color: var(--accent); }
 .screen h2 { margin: 0; font-size: 28px; letter-spacing: .08em; text-align: center; }
 .group { display: flex; flex-direction: column; gap: 8px; }
@@ -352,7 +358,7 @@ canvas { display: block; }
   color: var(--lcd0);
   font-family: "Silkscreen", var(--font-ui);
 }
-[data-skin="gameboy"] .screen h1 { font-size: 40px; }
+[data-skin="gameboy"] .screen h1 { --title-depth: var(--lcd2); }
 [data-skin="gameboy"] .screen h1 span { color: var(--lcd1); }
 [data-skin="gameboy"] .screen h2 { font-size: 24px; }
 [data-skin="gameboy"] :is(.row, .key, .setting-head) { font-size: 14px; letter-spacing: .04em; }
@@ -385,7 +391,7 @@ canvas { display: block; }
 [data-skin="obra"] .lcd { background: var(--paper); border: 3px solid var(--ink); outline: 1px solid var(--ink); outline-offset: 3px; padding: 5px; }
 [data-skin="obra"] .label { font-size: 14px; }
 [data-skin="obra"] .stat .v.time { font-size: calc(var(--c) * .62); }
-[data-skin="obra"] .screen h1 { font-size: 64px; }
+[data-skin="obra"] .screen h1 { --title-depth: var(--grid); }
 [data-skin="obra"] .screen h2 { font-size: 38px; }
 [data-skin="obra"] :is(.row, .key, .setting-head) { font-size: 23px; }
 [data-skin="obra"] :is(.glabel, .btn small) { font-size: 14px; }
