@@ -91,9 +91,8 @@ canvas { display: block; }
 
 /* Controls */
 .controls {
-  --dp: min(48vw, 27svh, 210px);
-  --a: min(27vw, 15svh, 116px);
-  --b: min(19vw, 10.5svh, 80px);
+  --dp: min(40vw, 22svh, 170px);
+  --a: min(36vw, 17svh, 140px);
   flex: none;
   display: flex; justify-content: space-between; align-items: center;
 }
@@ -115,22 +114,27 @@ canvas { display: block; }
 .dpad[data-dir="up"] .arm.up, .dpad[data-dir="down"] .arm.down,
 .dpad[data-dir="left"] .arm.left, .dpad[data-dir="right"] .arm.right { background: var(--key-hi); }
 
-/* Big A on top, smaller B tucked below and to the right */
-.ab { position: relative; width: calc(var(--a) + var(--b) * .55); height: var(--dp); }
-.round {
+/* Big square A on top; B below it at the right edge, wide and flat like a shoulder button */
+.ab { position: relative; width: calc(var(--a) * 1.2); height: calc(var(--a) * 1.38 + 10px); }
+.btn {
   position: absolute;
-  width: var(--btn); height: var(--btn); border-radius: 50%;
   border: 1px solid var(--key-hi); padding: 0; cursor: pointer;
   background: var(--key); color: var(--fg);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  font: 700 calc(var(--btn) * .34)/1 var(--font-ui);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-ui); font-weight: 700; line-height: 1;
   touch-action: none;
 }
-.round.a { --btn: var(--a); left: 0; top: 0; }
-.round.b { --btn: var(--b); right: 0; bottom: 0; }
-.round.pressed { background: var(--key-press); border-color: var(--key-press); }
-.round small { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
-.round.pressed small { color: var(--fg); }
+.btn.a {
+  left: 0; top: 0; width: var(--a); height: var(--a); border-radius: 18px;
+  flex-direction: column; gap: 6px; font-size: calc(var(--a) * .3);
+}
+.btn.b {
+  right: 0; bottom: 0; width: calc(var(--a) * .8); height: calc(var(--a) * .38); border-radius: 12px 12px 22px 12px;
+  gap: 8px; font-size: calc(var(--a) * .18);
+}
+.btn.pressed { background: var(--key-press); border-color: var(--key-press); }
+.btn small { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
+.btn.pressed small { color: var(--fg); }
 button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px; }
 </style>
 </head>
@@ -159,8 +163,8 @@ button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px;
       <div class="arm up"></div><div class="arm left"></div><div class="arm mid"></div><div class="arm right"></div><div class="arm down"></div>
     </div>
     <div class="ab">
-      <button class="round b" data-key="b" aria-label="B: guardar peça">B<small>HOLD</small></button>
-      <button class="round a" data-key="a" aria-label="A: girar">A<small>GIRAR</small></button>
+      <button class="btn a" data-key="a" aria-label="A: girar">A<small>GIRAR</small></button>
+      <button class="btn b" data-key="b" aria-label="B: guardar peça">B<small>HOLD</small></button>
     </div>
   </div>
 </div>
@@ -269,7 +273,7 @@ function lock() {
 }
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 9;
+const VERSION = 10;
 $('ver').textContent = 'v' + VERSION;
 
 // `over` is true whenever no game is running: before the first start and after a top-out
