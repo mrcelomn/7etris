@@ -1,6 +1,6 @@
 // Playfield rules shared by the player's game (main.js) and the AI opponent (ai.js).
-// Boards are ROWS arrays of COLS cells holding a piece letter, 'G' for garbage, or null;
-// the top HID rows sit above the visible field, where pieces spawn.
+// Boards are ROWS arrays of COLS cells holding a piece letter, 'G' for garbage, 'X' for solid
+// garbage, or null; the top HID rows sit above the visible field, where pieces spawn.
 
 export const COLS = 10, ROWS = 22, HID = 2, VIS = ROWS - HID;
 
@@ -63,24 +63,57 @@ export function stamp(board, m, px, py, t) {
   return visible;
 }
 
-// Removes full rows and returns how many there were
+// Removes full rows (solid garbage never clears) and returns how many there were
 export function clearLines(board) {
   let n = 0;
   for (let y = ROWS - 1; y >= 0; y--) {
-    if (board[y].every(Boolean)) { board.splice(y, 1); board.unshift(Array(COLS).fill(null)); n++; y++; }
+    if (board[y][0] !== 'X' && board[y].every(Boolean)) { board.splice(y, 1); board.unshift(Array(COLS).fill(null)); n++; y++; }
   }
   return n;
 }
 
-// Pushes `n` garbage rows up from the bottom, all with their hole in the same random column
+// Rows of solid garbage at the bottom of the board
+const solidCount = board => {
+  let k = 0;
+  while (k < board.length && board[board.length - 1 - k][0] === 'X') k++;
+  return k;
+};
+
+// Pushes `n` garbage rows up from the bottom (resting on any solid garbage), all with their
+// hole in the same random column
 export function addGarbage(board, n) {
   const hole = Math.floor(Math.random() * COLS);
   for (let i = 0; i < n; i++) {
     board.shift();
     const row = Array(COLS).fill('G');
     row[hole] = null;
-    board.push(row);
+    board.splice(board.length - solidCount(board), 0, row);
   }
+}
+
+// Solid "hurry-up" garbage, as in Jstris: unclearable rows that rise from the bottom of both
+// boards once a battle runs long. The first comes at SOLID_START, then they come faster and
+// faster up to 12 rows, pause for 30 s (a window to finish the opponent), then climb one per
+// second to the top. Returns how many solid rows a board should have `ms` into a battle.
+const SOLID_START = 120000;
+export function solidRowsAt(ms) {
+  let t = ms - SOLID_START;
+  if (t < 0) return 0;
+  let rows = 1;
+  for (let gap = 7000; rows < 12; gap -= 400, rows++) {
+    if (t < gap) return rows;
+    t -= gap;
+  }
+  t -= 30000;
+  return t < 0 ? rows : Math.min(VIS, rows + 1 + Math.floor(t / 1000));
+}
+
+// Adds one solid row at the very bottom; false means it pushed blocks off the top (top-out)
+export function addSolid(board) {
+  const toppedOut = board[0].some(Boolean);
+  board.shift();
+  board.push(Array(COLS).fill('X'));
+  return !toppedOut;
 }
 
 // Settles a lock: cleared lines first cancel garbage waiting to arrive, the rest is sent;

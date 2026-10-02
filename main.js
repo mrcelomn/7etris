@@ -1,14 +1,14 @@
 import * as audio from './audio.js';
 import { initPad, placePad, editPad } from './pad.js';
 import { SKINS, drawBlock } from './skins.js';
-import { COLS, ROWS, HID, VIS, SHAPES, rotCW, newBoard, spawnX, bag, seeded, collides as hits, stamp, clearLines, exchange, packBoard, unpackBoard } from './rules.js';
+import { COLS, ROWS, HID, VIS, SHAPES, rotCW, newBoard, spawnX, bag, seeded, collides as hits, stamp, clearLines, exchange, solidRowsAt, addSolid, packBoard, unpackBoard } from './rules.js';
 import { Bot } from './ai.js';
 import { Duel, newCode } from './duel.js';
 
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 30;
+const VERSION = 31;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -49,9 +49,9 @@ let mode = '40';
 let board, cur, queue, hold, canHold, lines, pieces, elapsed;
 let dropAcc = 0, lockT = 0, lockResets = 0;
 let rand = Math.random; // piece order; seeded in a duel so both players get the same pieces
-// Battles only: the opponent ({ board, dead, receive(n) }: the AI or the friend's mirror), and
-// garbage it sent that hasn't landed yet
-let foe = null, incoming = 0;
+// Battles only: the opponent ({ board, dead, receive(n) }: the AI or the friend's mirror),
+// garbage it sent that hasn't landed yet, and solid garbage rows risen so far
+let foe = null, incoming = 0, solidRows = 0;
 let duel = null; // the open connection to a friend, while in a duel
 
 const isMarathon = () => /^\d+$/.test(mode);
@@ -112,6 +112,18 @@ function lock(hard = false) {
   drawSide();
 }
 
+// Battle hurry-up: solid rows rise on their schedule. One that lifts the stack into the falling
+// piece nudges the piece up a row; one that pushes blocks off the top ends the game.
+function raiseSolids() {
+  for (const due = solidRowsAt(elapsed); solidRows < due; solidRows++) {
+    if (!addSolid(board)) return finish(false);
+    if (collides(cur.m, cur.x, cur.y)) {
+      cur.y--;
+      if (collides(cur.m, cur.x, cur.y)) return finish(false);
+    }
+  }
+}
+
 // ---------- flow ----------
 const SCREENS = ['menu', 'soundScr', 'skinScr', 'duelScr', 'pauseScr', 'result'];
 function show(id) { SCREENS.forEach(s => { $(s).hidden = s !== id; }); }
@@ -120,7 +132,7 @@ const on = (id, fn) => $(id).addEventListener('click', fn);
 function clearBoard() {
   board = newBoard(); queue = []; hold = null; canHold = true; cur = null;
   lines = 0; pieces = 0; elapsed = 0;
-  foe = null; incoming = 0;
+  foe = null; incoming = 0; solidRows = 0;
   $('foeBox').hidden = true;
   drawSide();
 }
@@ -509,6 +521,7 @@ function frame(now) {
       if (foe.update) foe.update(real); // the AI thinks; a friend's moves arrive as messages
       if (foe.dead) finish(true);
     }
+    if (foe && state === 'play' && cur) raiseSolids();
   }
   stats();
   if (bctx) drawBoard();

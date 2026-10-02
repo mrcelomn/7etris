@@ -1,4 +1,4 @@
-import { COLS, ROWS, HID, SHAPES, rotCW, newBoard, spawnX, bag, collides, stamp, clearLines, exchange, ATTACK } from './rules.js';
+import { COLS, ROWS, HID, SHAPES, rotCW, newBoard, spawnX, bag, collides, stamp, clearLines, exchange, solidRowsAt, addSolid, ATTACK } from './rules.js';
 
 // Offline opponent for the battle mode. For each piece it tries every rotation and column
 // (and the held piece too, above easy), scores the stack each would leave with a classic hand-tuned
@@ -25,6 +25,8 @@ export class Bot {
     this.pending = 0;
     this.dead = false;
     this.wait = this.cfg.delay;
+    this.elapsed = 0;
+    this.solid = 0; // solid garbage rows risen so far
     this.piece = this.pull();
   }
 
@@ -37,7 +39,12 @@ export class Bot {
   receive(n) { this.pending += n; }
 
   update(dt) {
-    if (this.dead || (this.wait -= dt) > 0) return;
+    if (this.dead) return;
+    this.elapsed += dt;
+    for (const due = solidRowsAt(this.elapsed); this.solid < due; this.solid++) {
+      if (!addSolid(this.board)) { this.dead = true; return; }
+    }
+    if ((this.wait -= dt) > 0) return;
     this.wait = this.cfg.delay * (0.8 + Math.random() * 0.4);
     this.play();
   }
