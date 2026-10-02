@@ -322,6 +322,8 @@ canvas { display: block; }
   font: italic 700 8px/1 var(--font-ui); letter-spacing: .14em; text-align: center;
   color: var(--bezel-ink);
 }
+/* Keep the opponent's board clear of the LCD's rounded bottom-right corner */
+[data-skin="gameboy"] .foe { margin-bottom: 22px; }
 [data-skin="gameboy"] .brand {
   display: block; margin-top: 10px;
   font: italic 800 22px/1 var(--font-ui); letter-spacing: .04em; color: var(--brand);

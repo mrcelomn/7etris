@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 29;
+const VERSION = 30;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -181,7 +181,8 @@ function finish(win) {
     result('FIM DE JOGO', marathon ? `Faltaram ${goal() - lines}` : `${lines} linhas`, fmt(elapsed, marathon ? 2 : 0));
   }
 }
-const LEVEL_NAMES = { 'ai-easy': 'DUELO IA · FÁCIL', 'ai-medium': 'DUELO IA · MÉDIO', 'ai-hard': 'DUELO IA · DIFÍCIL', duel: 'DUELO ONLINE' };
+// Short enough to fit the result screen's big type on one line
+const LEVEL_NAMES = { 'ai-easy': 'IA FÁCIL', 'ai-medium': 'IA MÉDIO', 'ai-hard': 'IA DIFÍCIL', duel: 'ONLINE' };
 const winsText = (key, where = '') => {
   const n = records[key] || 0;
   return `${n} ${n === 1 ? 'vitória' : 'vitórias'}${where && ' ' + where}`;
