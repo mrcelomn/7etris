@@ -294,6 +294,7 @@ const gravity = () => Math.max(80, 1000 * Math.pow(0.85, Math.floor(lines / 10))
 
 // ---------- input ----------
 // iOS has no vibration API, but toggling a native switch (iOS 18+) plays the system tap.
+// iOS only allows it on finger release, so every control calls haptic() on pointerup.
 // Android uses navigator.vibrate.
 const hapticSwitch = document.createElement('label');
 hapticSwitch.ariaHidden = 'true';
@@ -311,7 +312,6 @@ function haptic() {
 const held = {};
 function press(k) {
   if (held[k]) return;
-  haptic();
   held[k] = { next: performance.now() + DAS };
   if (over) { if (k === 'a') reset(); return; }
   switch (k) {
@@ -342,12 +342,14 @@ function setDir(d) {
 dpad.addEventListener('pointerdown', e => { e.preventDefault(); dpPointer = e.pointerId; try { dpad.setPointerCapture(e.pointerId); } catch (_) {} setDir(dirFrom(e)); });
 dpad.addEventListener('pointermove', e => { if (e.pointerId === dpPointer) setDir(dirFrom(e)); });
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => dpad.addEventListener(t, e => { if (e.pointerId === dpPointer) { dpPointer = null; setDir(null); } }));
+dpad.addEventListener('pointerup', haptic);
 
 document.querySelectorAll('[data-key]').forEach(b => {
   const k = b.dataset.key;
   b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (_) {} b.classList.add('pressed'); press(k); });
   const up = () => { b.classList.remove('pressed'); release(k); };
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => b.addEventListener(t, up));
+  b.addEventListener('pointerup', haptic);
 });
 
 const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'up', ' ': 'up', x: 'a', X: 'a', c: 'b', C: 'b', Shift: 'b' };
