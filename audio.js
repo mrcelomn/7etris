@@ -33,8 +33,8 @@ function build() {
   if (!AC) return;
   if (ctx) ctx.close().catch(() => {});
   silentSince = 0;
-  // 'ambient' mixes with other apps' audio and follows the silent switch, like games do
-  try { navigator.audioSession.type = 'ambient'; } catch (_) {}
+  // 'playback' keeps the game audible with the silent switch on (it pauses other apps' audio)
+  try { navigator.audioSession.type = 'playback'; } catch (_) {}
   ctx = new AC();
   musicOut = ctx.createGain();
   sfxOut = ctx.createGain();
@@ -87,7 +87,11 @@ function pulseWave(duty) {
 }
 
 // ---------- effects ----------
-export function sfx(name, lines = 0) {
+// Combo notes climb a major scale from C5, one step per consecutive clearing piece
+const COMBO_SCALE = [0, 2, 4, 5, 7, 9, 11];
+
+// `combo` (for 'clear'): how many clearing pieces in a row came before this one
+export function sfx(name, combo = 0) {
   if (!ctx || ctx.state !== 'running') return;
   const t = ctx.currentTime;
   switch (name) {
@@ -111,10 +115,11 @@ export function sfx(name, lines = 0) {
       hiss(sfxOut, t, 0.09, 900, 0.5, 'lowpass');
       break;
     case 'clear': {
-      const tetris = lines >= 4;
-      const notes = tetris ? [523, 659, 784, 1047, 1319] : [523, 659, 784].slice(0, lines + 1);
-      notes.forEach((f, i) => tone(sfxOut, f, t + i * 0.045, 0.18, tetris ? 'square' : 'triangle', tetris ? 0.12 : 0.25));
-      hiss(sfxOut, t, tetris ? 0.35 : 0.2, 6000, 0.15, 'highpass');
+      const step = Math.min(combo, 20);
+      const f = 523.25 * 2 ** ((COMBO_SCALE[step % 7] + 12 * Math.floor(step / 7)) / 12);
+      tone(sfxOut, f, t, 0.16, 'square', 0.12);
+      tone(sfxOut, f * 1.5, t + 0.03, 0.14, 'triangle', 0.14); // a fifth above, for a chime
+      hiss(sfxOut, t, 0.12, 6000, 0.1, 'highpass');
       break;
     }
     case 'over':

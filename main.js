@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 33;
+const VERSION = 34;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -48,6 +48,7 @@ let state = 'menu'; // menu | play | pause | done | edit
 let mode = '40';
 let board, cur, queue, hold, canHold, lines, pieces, elapsed;
 let dropAcc = 0, lockT = 0, lockResets = 0;
+let combo = 0; // pieces in a row that cleared lines; drives the rising combo sound
 let rand = Math.random; // piece order; seeded in a duel so both players get the same pieces
 // Battles only: the opponent ({ board, dead, receive(n) }: the AI or the friend's mirror),
 // garbage it sent that hasn't landed yet, and solid garbage rows risen so far
@@ -99,7 +100,11 @@ function lock(hard = false) {
   if (!stamp(board, cur.m, cur.x, cur.y, cur.t)) return finish(false);
   const cleared = clearLines(board);
   lines += cleared;
-  if (cleared) audio.sfx('clear', cleared); else if (!hard) audio.sfx('lock');
+  if (cleared) audio.sfx('clear', combo++);
+  else {
+    combo = 0;
+    if (!hard) audio.sfx('lock');
+  }
   if (lines >= goal()) return finish(true);
   if (foe) {
     const [sent, left] = exchange(board, cleared, incoming);
@@ -138,7 +143,7 @@ const on = (id, fn) => $(id).addEventListener('click', fn);
 
 function clearBoard() {
   board = newBoard(); queue = []; hold = null; canHold = true; cur = null;
-  lines = 0; pieces = 0; elapsed = 0;
+  lines = 0; pieces = 0; elapsed = 0; combo = 0;
   foe = null; incoming = 0; solidRows = 0;
   $('foeBox').hidden = true;
   drawSide();
