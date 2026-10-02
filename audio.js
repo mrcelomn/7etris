@@ -4,11 +4,19 @@
 
 let ctx = null, musicOut, sfxOut, noise, pulse25, pulse12;
 let silentSince = 0; // when a tap first found the sound not running (0: it's fine)
-const opts = { music: true, musicVol: 60, sfx: true, sfxVol: 80 };
+const opts = { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false };
 
 export function configure(o) {
   Object.assign(opts, o);
+  applySession();
   applyVolumes();
+}
+
+// iOS gives web pages two choices, and neither does both: 'ambient' mixes with other apps'
+// audio (Spotify keeps playing) but obeys the silent switch; 'playback' plays through the
+// silent switch but pauses other apps' audio. The player picks with "tocar no silencioso".
+function applySession() {
+  try { navigator.audioSession.type = opts.silentOk ? 'playback' : 'ambient'; } catch (_) {}
 }
 
 function applyVolumes() {
@@ -33,8 +41,7 @@ function build() {
   if (!AC) return;
   if (ctx) ctx.close().catch(() => {});
   silentSince = 0;
-  // 'playback' keeps the game audible with the silent switch on (it pauses other apps' audio)
-  try { navigator.audioSession.type = 'playback'; } catch (_) {}
+  applySession();
   ctx = new AC();
   musicOut = ctx.createGain();
   sfxOut = ctx.createGain();

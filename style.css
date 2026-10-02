@@ -225,6 +225,7 @@ canvas { display: block; }
 .toggle[aria-pressed="true"] { background: var(--accent); }
 .toggle[aria-pressed="true"]::after { transform: translateX(22px); background: #fff; }
 .setting input[type="range"] { width: 100%; margin: 0; height: 28px; accent-color: var(--accent); }
+.note { font-size: 13px; line-height: 1.4; color: var(--muted); letter-spacing: .02em; }
 
 .big { font: 700 44px/1 var(--font-num); text-align: center; font-variant-numeric: tabular-nums; }
 #duelRoom { letter-spacing: .18em; user-select: text; -webkit-user-select: text; }

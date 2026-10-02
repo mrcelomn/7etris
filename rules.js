@@ -16,6 +16,9 @@ export const SHAPES = {
 
 // Lines sent to the opponent for clearing 1, 2, 3 or 4 lines at once (Jstris' basic table)
 export const ATTACK = [0, 0, 1, 2, 4];
+// Extra lines for a combo, by how many clearing pieces in a row came before this one
+// (Jstris' default combo table; it stays at 5 from there on)
+export const COMBO = [0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5];
 
 export const rotCW = m => m.map((r, y) => r.map((_, x) => m[m.length - 1 - x][y]));
 export const newBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill(null));
@@ -116,13 +119,15 @@ export function addSolid(board) {
   return !toppedOut;
 }
 
-// Settles a lock: cleared lines first cancel garbage waiting to arrive, the rest is sent;
-// with no clear, everything waiting rises into the board. Returns [sent, stillPending].
-export function exchange(board, cleared, pending) {
+// Settles a lock: the attack (lines cleared plus the combo bonus) first cancels garbage
+// waiting to arrive and the rest is sent; with no clear, everything waiting rises into the
+// board. `combo` is this clear's place in the combo. Returns [sent, stillPending].
+export function exchange(board, cleared, pending, combo = 0) {
   if (!cleared) {
     if (pending) addGarbage(board, pending);
     return [0, 0];
   }
-  const attack = ATTACK[Math.min(cleared, 4)], cancel = Math.min(attack, pending);
+  const attack = ATTACK[Math.min(cleared, 4)] + COMBO[Math.min(combo, COMBO.length - 1)];
+  const cancel = Math.min(attack, pending);
   return [attack - cancel, pending - cancel];
 }

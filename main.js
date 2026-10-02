@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 34;
+const VERSION = 35;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -37,7 +37,7 @@ function save(key, value) {
 }
 // Best marathon time in ms keyed by line goal ('20'…), and battle wins keyed by mode ('ai-easy'…)
 const records = load('7etris-records', {});
-const sound = load('7etris-audio', { music: true, musicVol: 60, sfx: true, sfxVol: 80 });
+const sound = load('7etris-audio', { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false });
 const look = load('7etris-look', { skin: 'classic', theme: 'dark' });
 audio.configure(sound);
 
@@ -100,14 +100,17 @@ function lock(hard = false) {
   if (!stamp(board, cur.m, cur.x, cur.y, cur.t)) return finish(false);
   const cleared = clearLines(board);
   lines += cleared;
-  if (cleared) audio.sfx('clear', combo++);
-  else {
+  const chain = combo; // this clear's place in the combo
+  if (cleared) {
+    audio.sfx('clear', chain);
+    combo++;
+  } else {
     combo = 0;
     if (!hard) audio.sfx('lock');
   }
   if (lines >= goal()) return finish(true);
   if (foe) {
-    const [sent, left] = exchange(board, cleared, incoming);
+    const [sent, left] = exchange(board, cleared, incoming, chain);
     incoming = left;
     if (sent) foe.receive(sent);
     if (duel) duel.send({ t: 'board', b: packBoard(board) });
@@ -309,6 +312,7 @@ on('duelBack', () => { leaveDuel(); duelStatus(''); show('menu'); });
 function renderSound() {
   $('musicOn').setAttribute('aria-pressed', sound.music);
   $('sfxOn').setAttribute('aria-pressed', sound.sfx);
+  $('silentOn').setAttribute('aria-pressed', sound.silentOk);
   $('musicVol').value = sound.musicVol;
   $('sfxVol').value = sound.sfxVol;
 }
@@ -323,6 +327,7 @@ on('openSound', () => { renderSound(); show('soundScr'); audio.musicPlay(true); 
 on('soundBack', () => { audio.musicStop(); show('menu'); });
 on('musicOn', () => setSound({ music: !sound.music }));
 on('sfxOn', () => { setSound({ sfx: !sound.sfx }); audio.sfx('rotate'); });
+on('silentOn', () => setSound({ silentOk: !sound.silentOk }));
 $('musicVol').addEventListener('input', e => setSound({ musicVol: +e.target.value }));
 $('sfxVol').addEventListener('input', e => setSound({ sfxVol: +e.target.value }));
 $('sfxVol').addEventListener('change', () => audio.sfx('lock'));

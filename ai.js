@@ -27,6 +27,7 @@ export class Bot {
     this.wait = this.cfg.delay;
     this.elapsed = 0;
     this.solid = 0; // solid garbage rows risen so far
+    this.combo = 0; // pieces in a row that cleared lines
     this.piece = this.pull();
   }
 
@@ -61,7 +62,9 @@ export class Bot {
       }
     }
     if (!best || !stamp(this.board, best.m, best.x, best.y, this.piece)) { this.dead = true; return; }
-    const [sent, pending] = exchange(this.board, clearLines(this.board), this.pending);
+    const cleared = clearLines(this.board);
+    const [sent, pending] = exchange(this.board, cleared, this.pending, this.combo);
+    this.combo = cleared ? this.combo + 1 : 0;
     this.pending = pending;
     if (sent) this.onAttack(sent);
     this.piece = this.pull();
