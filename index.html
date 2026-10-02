@@ -49,7 +49,7 @@ body {
 .app {
   height: 100%; max-width: 480px; margin: 0 auto;
   box-sizing: border-box;
-  padding: calc(6px + env(safe-area-inset-top, 0px)) 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 10px calc(10px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; gap: 10px;
 }
 
@@ -60,7 +60,7 @@ body {
   display: flex; justify-content: center; align-items: center;
   gap: calc(var(--c) * .3);
 }
-.side { width: calc(var(--c) * 2.4); align-self: stretch; display: flex; flex-direction: column; gap: calc(var(--c) * .6); padding-top: 2px; }
+.side { width: calc(var(--c) * 1.9); align-self: stretch; display: flex; flex-direction: column; gap: calc(var(--c) * .6); padding-top: 2px; }
 .label { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: var(--muted); line-height: 1; margin-bottom: 5px; }
 .slot { background: var(--panel); border: 1px solid var(--line); }
 canvas { display: block; }
@@ -114,7 +114,7 @@ canvas { display: block; }
 .dpad[data-dir="up"] .arm.up, .dpad[data-dir="down"] .arm.down,
 .dpad[data-dir="left"] .arm.left, .dpad[data-dir="right"] .arm.right { background: var(--key-hi); }
 
-.ab { position: relative; width: calc(var(--btn) * 2.15); height: calc(var(--btn) * 1.65); }
+.ab { position: relative; margin-right: 14px; width: calc(var(--btn) * 2.15); height: calc(var(--btn) * 1.65); }
 .round {
   position: absolute;
   width: var(--btn); height: var(--btn); border-radius: 50%;
@@ -267,7 +267,7 @@ function lock() {
 }
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 7;
+const VERSION = 8;
 $('ver').textContent = 'v' + VERSION;
 
 // `over` is true whenever no game is running: before the first start and after a top-out
@@ -362,9 +362,9 @@ function sizeCanvas(cv, w, h) {
 }
 function resize() {
   const f = $('field');
-  cell = Math.max(10, Math.floor(Math.min((f.clientHeight - 1) / VIS, (f.clientWidth - 4) / 15.4)));
+  cell = Math.max(10, Math.floor(Math.min((f.clientHeight - 1) / VIS, (f.clientWidth - 4) / 14.4)));
   f.style.setProperty('--c', cell + 'px');
-  const sw = Math.round(cell * 2.4) - 2;
+  const sw = Math.round(cell * 1.9) - 2;
   bctx = sizeCanvas($('board'), cell * COLS, cell * VIS);
   hctx = sizeCanvas($('hold'), sw, Math.round(cell * 1.5));
   nctx = sizeCanvas($('next'), sw, Math.round(cell * 1.5) * PREVIEW);
