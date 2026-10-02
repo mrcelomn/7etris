@@ -131,9 +131,8 @@ canvas { display: block; }
   gap: 4px; font-size: calc(var(--c) * .9);
 }
 .btn.b small { font-size: 9px; }
-.btn.pressed { background: var(--key-press); border-color: var(--key-press); }
+.btn.pressed { background: var(--key-hi); }
 .btn small { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
-.btn.pressed small { color: var(--fg); }
 button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px; }
 </style>
 </head>
@@ -270,7 +269,7 @@ function lock() {
 }
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 11;
+const VERSION = 12;
 $('ver').textContent = 'v' + VERSION;
 
 // `over` is true whenever no game is running: before the first start and after a top-out
@@ -302,9 +301,11 @@ const gravity = () => Math.max(80, 1000 * Math.pow(0.85, Math.floor(lines / 10))
 
 // ---------- input ----------
 const held = {};
+// Only the auto-repeating directions track "held"; A, B and hard drop act on every press,
+// so a release iOS never reports can't leave them stuck and swallow the next tap.
+const REPEATS = ['left', 'right', 'down'];
 function press(k) {
-  if (held[k]) return;
-  held[k] = { next: performance.now() + DAS };
+  if (REPEATS.includes(k)) held[k] = { next: performance.now() + DAS };
   if (over) { if (k === 'a') reset(); return; }
   switch (k) {
     case 'left': tryMove(-1, 0); break;
