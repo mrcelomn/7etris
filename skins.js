@@ -1,7 +1,8 @@
 // Block skins: each one draws a single s×s cell. Colors follow the modern guideline palette;
 // the Game Boy skin swaps them for four LCD greens with a texture per piece, like the 1989 game.
 
-export const COLORS = { I: '#0f9bd7', O: '#e39f02', T: '#af298a', S: '#59b101', Z: '#d70f37', J: '#2141c6', L: '#e35b02' };
+// G is garbage sent by the opponent in battle
+export const COLORS = { I: '#0f9bd7', O: '#e39f02', T: '#af298a', S: '#59b101', Z: '#d70f37', J: '#2141c6', L: '#e35b02', G: '#7a7f89' };
 
 // Mix a #rrggbb color toward white (amt > 0) or black (amt < 0)
 function shade(hex, amt) {
@@ -59,6 +60,7 @@ const LCD_TEXTURE = {
   Z: [[0, 1], [1, 3], [3, 1]],
   J: [[0, 0], [1, 3], [2, 2]],
   L: [[0, 0], [1, 1], [2, 2], [3, 1]],
+  G: [[0, 1], [2, 2]],
 };
 function gameboy(ctx, x, y, s, c, t) {
   if (!t) { ctx.fillStyle = c; ctx.fillRect(x, y, s, s); return; }

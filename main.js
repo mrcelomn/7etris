@@ -1,23 +1,16 @@
 import * as audio from './audio.js';
 import { initPad, placePad, editPad } from './pad.js';
 import { SKINS, drawBlock } from './skins.js';
+import { COLS, ROWS, HID, VIS, SHAPES, rotCW, newBoard, spawnX, bag, collides as hits, stamp, clearLines, exchange } from './rules.js';
+import { Bot } from './ai.js';
 
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 25;
+const VERSION = 26;
 
 // ---------- rules ----------
-const COLS = 10, ROWS = 22, HID = 2, VIS = ROWS - HID, PREVIEW = 5;
-const SHAPES = {
-  I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
-  O: [[1,1],[1,1]],
-  T: [[0,1,0],[1,1,1],[0,0,0]],
-  S: [[0,1,1],[1,1,0],[0,0,0]],
-  Z: [[1,1,0],[0,1,1],[0,0,0]],
-  J: [[1,0,0],[1,1,1],[0,0,0]],
-  L: [[0,0,1],[1,1,1],[0,0,0]],
-};
+const PREVIEW = 5;
 // SRS clockwise wall kicks, indexed by the rotation state we leave (y is flipped: + is down)
 const KICKS = [
   [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
@@ -41,44 +34,32 @@ function load(key, fallback) {
 function save(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
 }
-const records = load('7etris-records', {}); // best marathon time in ms, keyed by line goal
+// Best marathon time in ms keyed by line goal ('20'…), and battle wins keyed by mode ('ai-easy'…)
+const records = load('7etris-records', {});
 const sound = load('7etris-audio', { music: true, musicVol: 60, sfx: true, sfxVol: 80 });
 const look = load('7etris-look', { skin: 'classic', theme: 'dark' });
 audio.configure(sound);
 
 // ---------- game state ----------
 let state = 'menu'; // menu | play | pause | done | edit
-let mode = '40';    // '20' | '40' | '100' marathon line goal, or 'free'
+// '20' | '40' | '100' marathon line goal, 'free', or a battle: 'ai-easy' | 'ai-medium' | 'ai-hard'
+let mode = '40';
 let board, cur, queue, hold, canHold, lines, pieces, elapsed;
 let dropAcc = 0, lockT = 0, lockResets = 0;
+let bot = null, incoming = 0; // battle only: the AI, and garbage it sent that hasn't landed yet
 
-const goal = () => (mode === 'free' ? Infinity : Number(mode));
-// Marathon keeps 1 row/second like Jstris; free play speeds up 15% every 10 lines
+const isMarathon = () => /^\d+$/.test(mode);
+const isBattle = () => mode.startsWith('ai-');
+const goal = () => (isMarathon() ? Number(mode) : Infinity);
+// Marathon and battle keep 1 row/second like Jstris; free play speeds up 15% every 10 lines
 const gravity = () => (mode === 'free' ? Math.max(80, 1000 * 0.85 ** Math.floor(lines / 10)) : 1000);
 
-const rotCW = m => m.map((r, y) => r.map((_, x) => m[m.length - 1 - x][y]));
-const newBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill(null));
-
-function bag() {
-  const b = Object.keys(SHAPES);
-  for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
-  return b;
-}
 function pull() { if (queue.length <= PREVIEW) queue.push(...bag()); return queue.shift(); }
-
-function collides(m, px, py) {
-  for (let y = 0; y < m.length; y++) for (let x = 0; x < m[y].length; x++) {
-    if (!m[y][x]) continue;
-    const bx = px + x, by = py + y;
-    if (bx < 0 || bx >= COLS || by >= ROWS) return true;
-    if (by >= 0 && board[by][bx]) return true;
-  }
-  return false;
-}
+const collides = (m, px, py) => hits(board, m, px, py);
 
 function spawn(t) {
   const m = SHAPES[t].map(r => r.slice());
-  cur = { t, m, r: 0, x: Math.floor((COLS - m.length) / 2), y: HID - 1 };
+  cur = { t, m, r: 0, x: spawnX(m), y: HID - 1 };
   dropAcc = 0; lockT = 0; lockResets = 0;
   if (collides(cur.m, cur.x, cur.y)) finish(false);
 }
@@ -108,22 +89,17 @@ function ghostY() { let y = cur.y; while (!collides(cur.m, cur.x, y + 1)) y++; r
 function hardDrop() { cur.y = ghostY(); audio.sfx('drop'); lock(true); }
 
 function lock(hard = false) {
-  let visible = false;
-  cur.m.forEach((r, y) => r.forEach((v, x) => {
-    if (!v) return;
-    const by = cur.y + y;
-    if (by >= 0) board[by][cur.x + x] = cur.t;
-    if (by >= HID) visible = true;
-  }));
   pieces++;
-  if (!visible) return finish(false);
-  let cleared = 0;
-  for (let y = ROWS - 1; y >= 0; y--) {
-    if (board[y].every(Boolean)) { board.splice(y, 1); board.unshift(Array(COLS).fill(null)); cleared++; y++; }
-  }
+  if (!stamp(board, cur.m, cur.x, cur.y, cur.t)) return finish(false);
+  const cleared = clearLines(board);
   lines += cleared;
   if (cleared) audio.sfx('clear', cleared); else if (!hard) audio.sfx('lock');
   if (lines >= goal()) return finish(true);
+  if (bot) {
+    const [sent, left] = exchange(board, cleared, incoming);
+    incoming = left;
+    if (sent) bot.receive(sent);
+  }
   canHold = true;
   spawn(pull());
   drawSide();
@@ -137,12 +113,18 @@ const on = (id, fn) => $(id).addEventListener('click', fn);
 function clearBoard() {
   board = newBoard(); queue = []; hold = null; canHold = true; cur = null;
   lines = 0; pieces = 0; elapsed = 0;
+  bot = null; incoming = 0;
+  $('foeBox').hidden = true;
   drawSide();
 }
 
 function startGame(m) {
   mode = m;
   clearBoard();
+  if (isBattle()) {
+    bot = new Bot(mode.slice(3), n => { incoming += n; });
+    $('foeBox').hidden = false;
+  }
   state = 'play';
   show(null);
   spawn(pull());
@@ -172,15 +154,19 @@ function finish(win) {
   releaseAll();
   audio.musicStop();
   audio.sfx(win ? 'win' : 'over');
-  const marathon = mode !== 'free';
-  if (win) {
+  if (isBattle()) {
+    if (win) { records[mode] = (records[mode] || 0) + 1; save('7etris-records', records); }
+    result(win ? 'VITÓRIA!' : 'DERROTA', LEVEL_NAMES[mode], `${records[mode] || 0} ${records[mode] === 1 ? 'vitória' : 'vitórias'} neste nível`);
+  } else if (win) {
     const best = records[mode], isRecord = !best || elapsed < best;
     if (isRecord) { records[mode] = elapsed; save('7etris-records', records); }
     result(`${mode} LINHAS`, fmt(elapsed, 2), isRecord ? 'NOVO RECORDE!' : `Recorde: ${fmt(best, 2)}`);
   } else {
+    const marathon = isMarathon();
     result('FIM DE JOGO', marathon ? `Faltaram ${goal() - lines}` : `${lines} linhas`, fmt(elapsed, marathon ? 2 : 0));
   }
 }
+const LEVEL_NAMES = { 'ai-easy': 'IA FÁCIL', 'ai-medium': 'IA MÉDIA', 'ai-hard': 'IA DIFÍCIL' };
 function result(title, main, sub) {
   $('resTitle').textContent = title;
   $('resMain').textContent = main;
@@ -198,15 +184,20 @@ function openMenu() {
     const best = records[el.dataset.rec];
     el.textContent = best ? fmt(best, 2) : '—';
   });
+  document.querySelectorAll('[data-wins]').forEach(el => {
+    const wins = records[el.dataset.wins] || 0;
+    el.textContent = wins ? `${wins} ${wins === 1 ? 'vitória' : 'vitórias'}` : '—';
+  });
   show('menu');
 }
 
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
-on('marathonBtn', () => {
-  const open = $('marathonList').hidden;
-  $('marathonList').hidden = !open;
-  $('marathonBtn').setAttribute('aria-expanded', open);
-});
+// MARATONA and BATALHA open their list of options underneath
+document.querySelectorAll('[aria-controls]').forEach(btn => btn.addEventListener('click', () => {
+  const list = $(btn.getAttribute('aria-controls')), open = list.hidden;
+  list.hidden = !open;
+  btn.setAttribute('aria-expanded', open);
+}));
 on('pauseBtn', pause);
 on('resume', resume);
 on('restart', () => startGame(mode));
@@ -330,7 +321,7 @@ function readPalette() {
   const s = css(), v = name => s.getPropertyValue(name).trim();
   PANEL = v('--panel'); GRID = v('--grid'); DEAD = v('--dead');
 }
-let cell = 18, bctx, hctx, nctx;
+let cell = 18, bctx, hctx, nctx, fctx;
 
 function sizeCanvas(cv, w, h) {
   const d = Math.min(window.devicePixelRatio || 1, 3);
@@ -351,6 +342,7 @@ function resize() {
   bctx = sizeCanvas($('board'), cell * COLS, cell * VIS);
   hctx = sizeCanvas($('hold'), sw, Math.round(cell * 1.5));
   nctx = sizeCanvas($('next'), sw, Math.round(cell * 1.5) * PREVIEW);
+  fctx = sizeCanvas($('foe'), sw, sw * 2); // the AI's board, 10×20 tiny cells
   drawSide();
   placePad();
 }
@@ -390,6 +382,18 @@ function drawSide() {
   queue.slice(0, PREVIEW).forEach((t, i) => mini(nctx, t, w / 2, h * i + h / 2, s, 'solid'));
 }
 
+// Battle extras: the AI's board in miniature, and the red bar beside the board showing
+// garbage on its way to the player (it lands on the next lock that clears nothing)
+function drawBattle() {
+  const w = parseFloat($('foe').style.width), s = w / COLS;
+  fctx.fillStyle = PANEL; fctx.fillRect(0, 0, w, s * VIS);
+  for (let y = HID; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const t = bot.board[y][x];
+    if (t) block(fctx, x * s, (y - HID) * s, s, t, bot.dead ? 'dead' : 'solid');
+  }
+  $('meter').style.height = `${(Math.min(incoming, VIS) / VIS) * 100}%`;
+}
+
 // m:ss with `dp` decimals of a second
 function fmt(ms, dp) {
   const s = ms / 1000, m = Math.floor(s / 60), r = s - m * 60;
@@ -399,7 +403,7 @@ function fmt(ms, dp) {
 function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
 const statEls = { label: $('linesLbl'), lines: $('lines'), pieces: $('pieces'), time: $('time') };
 function stats() {
-  const marathon = mode !== 'free' && (state === 'play' || state === 'pause' || state === 'done');
+  const marathon = isMarathon() && (state === 'play' || state === 'pause' || state === 'done');
   setText(statEls.label, marathon ? 'FALTAM' : 'LINHAS');
   setText(statEls.lines, String(marathon ? Math.max(0, goal() - lines) : lines));
   setText(statEls.pieces, String(pieces));
@@ -426,9 +430,14 @@ function frame(now) {
       lockT = 0; dropAcc += dt;
       while (cur && dropAcc >= iv) { dropAcc -= iv; if (!tryMove(0, 1)) { dropAcc = 0; break; } }
     }
+    if (bot && state === 'play') {
+      bot.update(real);
+      if (bot.dead) finish(true);
+    }
   }
   stats();
   if (bctx) drawBoard();
+  if (bot) drawBattle();
   requestAnimationFrame(frame);
 }
 

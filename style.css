@@ -16,14 +16,15 @@
   --scrim: rgba(12, 13, 16, .94);
   --bar: rgba(18, 20, 24, .96);
   --accent: #a3245a;
-  /* On-screen controls follow the theme unless a skin repaints them */
+  /* On-screen controls: the d-pad follows the theme unless a skin repaints it; A and B are
+     always the Game Boy's magenta */
   --pad-key: var(--key);
   --pad-key-hi: var(--key-hi);
   --pad-ink: var(--muted);
-  --btn-key: var(--key);
-  --btn-key-hi: var(--key-hi);
-  --btn-ink: var(--fg);
-  --btn-label: var(--muted);
+  --btn-key: #a3245a;
+  --btn-key-hi: #7d1a45;
+  --btn-ink: #f6e3ec;
+  --btn-label: rgba(246, 227, 236, .7);
   --pad-shadow: rgba(0, 0, 0, .45);
   --font-ui: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
   --font-num: "JetBrains Mono", ui-monospace, Menlo, monospace;
@@ -93,7 +94,10 @@ canvas { display: block; }
 .stat .v { font: 700 calc(var(--c) * .62)/1 var(--font-num); font-variant-numeric: tabular-nums; }
 .stat .v.time { font-size: calc(var(--c) * .5); }
 .stat .label { margin-bottom: 4px; }
-.board-wrap { border: 1px solid var(--line); border-top: 0; background: var(--panel); }
+.board-wrap { position: relative; border: 1px solid var(--line); border-top: 0; background: var(--panel); }
+/* Battle: garbage on its way, growing up the board's left edge */
+.meter { position: absolute; left: -5px; bottom: 0; width: 3px; height: 0; border-radius: 2px; background: var(--accent); transition: height .15s; }
+.foe { margin-top: auto; }
 .brand { display: none; }
 
 /* Small pause button pinned to the bottom centre of the screen */
@@ -259,10 +263,6 @@ canvas { display: block; }
   --pad-key: #222226;
   --pad-key-hi: #3a3a40;
   --pad-ink: #6d6d76;
-  --btn-key: #a3245a;
-  --btn-key-hi: #7d1a45;
-  --btn-ink: #f6e3ec;
-  --btn-label: rgba(246, 227, 236, .7);
 }
 :root[data-skin="gameboy"][data-theme="dark"] {
   --bg: #19191c;

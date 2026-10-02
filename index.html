@@ -29,9 +29,10 @@
           <div class="stat"><div class="label">TEMPO</div><div class="v time" id="time">0:00</div></div>
         </div>
       </div>
-      <div class="board-wrap"><canvas id="board"></canvas></div>
+      <div class="board-wrap"><canvas id="board"></canvas><div class="meter" id="meter"></div></div>
       <div class="side right">
         <div><div class="label">NEXT</div><div class="slot"><canvas id="next"></canvas></div></div>
+        <div class="foe" id="foeBox" hidden><div class="label">IA</div><div class="slot"><canvas id="foe"></canvas></div></div>
       </div>
     </div>
     <div class="brand" id="brand" aria-hidden="true">7ETRIS<small>POCKET</small></div>
@@ -70,11 +71,17 @@
     <h1><span>7</span>ETRIS</h1>
     <div class="group">
       <div class="glabel">JOGAR</div>
-      <button class="row" id="marathonBtn" aria-expanded="false">MARATONA<span class="chev" aria-hidden="true"></span></button>
+      <button class="row" aria-controls="marathonList" aria-expanded="false">MARATONA<span class="chev" aria-hidden="true"></span></button>
       <div class="cascade" id="marathonList" hidden>
         <button class="row" data-mode="20">20 LINHAS<span class="rec" data-rec="20">—</span></button>
         <button class="row" data-mode="40">40 LINHAS<span class="rec" data-rec="40">—</span></button>
         <button class="row" data-mode="100">100 LINHAS<span class="rec" data-rec="100">—</span></button>
+      </div>
+      <button class="row" aria-controls="battleList" aria-expanded="false">BATALHA CONTRA IA<span class="chev" aria-hidden="true"></span></button>
+      <div class="cascade" id="battleList" hidden>
+        <button class="row" data-mode="ai-easy">FÁCIL<span class="rec" data-wins="ai-easy">—</span></button>
+        <button class="row" data-mode="ai-medium">MÉDIO<span class="rec" data-wins="ai-medium">—</span></button>
+        <button class="row" data-mode="ai-hard">DIFÍCIL<span class="rec" data-wins="ai-hard">—</span></button>
       </div>
       <button class="row" data-mode="free">LIVRE</button>
     </div>
