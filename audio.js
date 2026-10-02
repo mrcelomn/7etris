@@ -2,7 +2,7 @@
 // a traditional folk song) as chiptune, and short effects in the style of Jstris's.
 // iOS only lets audio start inside a tap, so main.js calls unlock() on every touch.
 
-let ctx = null, musicOut, sfxOut, noise;
+let ctx = null, musicOut, sfxOut, noise, pulse25, pulse12;
 const opts = { music: true, musicVol: 60, sfx: true, sfxVol: 80 };
 
 export function configure(o) {
@@ -12,7 +12,7 @@ export function configure(o) {
 
 function applyVolumes() {
   if (!ctx) return;
-  musicOut.gain.value = opts.music ? (opts.musicVol / 100) * 0.35 : 0;
+  musicOut.gain.value = opts.music ? (opts.musicVol / 100) * 0.3 : 0;
   sfxOut.gain.value = opts.sfx ? (opts.sfxVol / 100) * 0.8 : 0;
 }
 
@@ -30,6 +30,8 @@ export function unlock() {
     noise = ctx.createBuffer(1, ctx.sampleRate / 4, ctx.sampleRate);
     const d = noise.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    pulse25 = pulseWave(0.25);
+    pulse12 = pulseWave(0.125);
     applyVolumes();
   }
   if (ctx.state !== 'running') ctx.resume().catch(() => {});
@@ -49,7 +51,8 @@ function tone(out, freq, t, dur, type, vol, to) {
   o.stop(t + dur + 0.02);
 }
 
-function hiss(t, dur, freq, vol, type = 'bandpass') {
+// A burst of filtered noise: clicks for the effects, drums for the music
+function hiss(out, t, dur, freq, vol, type = 'bandpass') {
   const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
   s.buffer = noise;
   f.type = type;
@@ -58,9 +61,16 @@ function hiss(t, dur, freq, vol, type = 'bandpass') {
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(f);
   f.connect(g);
-  g.connect(sfxOut);
+  g.connect(out);
   s.start(t);
   s.stop(t + dur + 0.02);
+}
+
+// Pulse wave with the given duty cycle, the Game Boy's lead sound (Fourier series of a pulse)
+function pulseWave(duty) {
+  const n = 32, real = new Float32Array(n), imag = new Float32Array(n);
+  for (let k = 1; k < n; k++) real[k] = (4 / (k * Math.PI)) * Math.sin(k * Math.PI * duty);
+  return ctx.createPeriodicWave(real, imag);
 }
 
 // ---------- effects ----------
@@ -69,10 +79,10 @@ export function sfx(name, lines = 0) {
   const t = ctx.currentTime;
   switch (name) {
     case 'move':
-      hiss(t, 0.03, 3200, 0.5);
+      hiss(sfxOut, t, 0.03, 3200, 0.5);
       break;
     case 'rotate':
-      hiss(t, 0.03, 4500, 0.35);
+      hiss(sfxOut, t, 0.03, 4500, 0.35);
       tone(sfxOut, 900, t, 0.05, 'triangle', 0.18, 1400);
       break;
     case 'hold':
@@ -81,17 +91,17 @@ export function sfx(name, lines = 0) {
       break;
     case 'lock':
       tone(sfxOut, 240, t, 0.07, 'sine', 0.4, 120);
-      hiss(t, 0.04, 1500, 0.25);
+      hiss(sfxOut, t, 0.04, 1500, 0.25);
       break;
     case 'drop':
       tone(sfxOut, 180, t, 0.14, 'sine', 0.7, 45);
-      hiss(t, 0.09, 900, 0.5, 'lowpass');
+      hiss(sfxOut, t, 0.09, 900, 0.5, 'lowpass');
       break;
     case 'clear': {
       const tetris = lines >= 4;
       const notes = tetris ? [523, 659, 784, 1047, 1319] : [523, 659, 784].slice(0, lines + 1);
       notes.forEach((f, i) => tone(sfxOut, f, t + i * 0.045, 0.18, tetris ? 'square' : 'triangle', tetris ? 0.12 : 0.25));
-      hiss(t, tetris ? 0.35 : 0.2, 6000, 0.15, 'highpass');
+      hiss(sfxOut, t, tetris ? 0.35 : 0.2, 6000, 0.15, 'highpass');
       break;
     }
     case 'over':
@@ -105,7 +115,13 @@ export function sfx(name, lines = 0) {
 }
 
 // ---------- music ----------
-const EIGHTH = 0.18; // seconds
+// Korobeiniki arranged like a Game Boy track, in the console's four kinds of voice: the lead
+// on a 25% pulse wave (with vibrato on long notes), harmony on a thin 12.5% pulse, bass on a
+// soft triangle, and noise drums. The loop runs A, A with harmony, B, then B again with
+// arpeggios and the lead an octave up. The whole song is built up front as one list of events
+// per eighth note, which the scheduler plays slightly ahead so the timing stays steady.
+const EIGHTH = 0.17; // seconds
+
 // Note + length in eighths; R is a rest
 const parse = s => s.trim().split(/\s+/).reduce((a, v, i, all) => (i % 2 ? a : [...a, [v, +all[i + 1]]]), []);
 const PART_A = parse(`
@@ -114,28 +130,93 @@ const PART_A = parse(`
 const PART_B = parse(`
   E5 4 C5 4 D5 4 B4 4 C5 4 A4 4 G#4 4 B4 2 R 2
   E5 4 C5 4 D5 4 B4 4 C5 2 E5 2 A5 4 G#5 6 R 2`);
-const MELODY = [...PART_A, ...PART_A, ...PART_B];
-// One bass root per bar of the melody above, bouncing between the root and its octave
-const ROOTS = 'E A E A D C E A  E A E A D C E A  A E A E A E A E'.split(/\s+/);
-const ROOT_HZ = { A: 110, C: 65.41, D: 73.42, E: 82.41 };
-const BASS = ROOTS.flatMap(r => Array(8).fill(ROOT_HZ[r]));
+// One chord per bar, and the notes (root, third, fifth) that make it up
+const CHORDS_A = 'Em Am E Am Dm C E Am'.split(' ');
+const CHORDS_B = 'Am E Am E Am E Am E'.split(' ');
+const TONES = { Em: ['E', 'G', 'B'], Am: ['A', 'C', 'E'], E: ['E', 'G#', 'B'], Dm: ['D', 'F', 'A'], C: ['C', 'E', 'G'] };
 
-function noteHz(n) {
-  const semi = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[n[0]] + (n[1] === '#' ? 1 : 0);
-  const midi = 12 * (+n[n.length - 1] + 1) + semi;
-  return 440 * 2 ** ((midi - 69) / 12);
+function hz(name, octave) {
+  const semi = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[name[0]] + (name[1] === '#' ? 1 : 0);
+  return 440 * 2 ** ((12 * (octave + 1) + semi - 69) / 12);
+}
+const noteHz = n => hz(n.slice(0, -1), +n.slice(-1));
+
+// harmony: none, 'quarters' (third and fifth on each beat) or 'arpeggio' (chord tones on each
+// eighth); lift: 2 plays the lead an octave up; groove 'b' adds a push to the kick pattern
+function section(melody, chords, harmony, lift, groove) {
+  const steps = Array.from({ length: chords.length * 8 }, () => ({}));
+  let pos = 0;
+  for (const [n, d] of melody) {
+    if (n !== 'R') steps[pos].lead = [noteHz(n) * lift, d];
+    pos += d;
+  }
+  chords.forEach((name, bar) => {
+    const [root, third, fifth] = TONES[name];
+    for (let i = 0; i < 8; i++) {
+      const s = steps[bar * 8 + i];
+      s.bass = i === 6 ? hz(fifth, 2) : hz(root, i % 2 ? 3 : 2); // root, octave… fifth, octave
+      if (harmony === 'quarters' && i % 2 === 0) s.harm = [hz(i % 4 ? fifth : third, 4), 2];
+      if (harmony === 'arpeggio') s.harm = [hz([root, third, fifth, third][i % 4], 4), 1];
+      s.kick = i === 0 || i === 4 || (groove === 'b' && i === 3);
+      s.snare = i === 2 || i === 6;
+      s.openHat = groove === 'b' && i === 7;
+    }
+  });
+  return steps;
+}
+const SONG = [
+  ...section(PART_A, CHORDS_A, null, 1, 'a'),
+  ...section(PART_A, CHORDS_A, 'quarters', 1, 'a'),
+  ...section(PART_B, CHORDS_B, null, 1, 'b'),
+  ...section(PART_B, CHORDS_B, 'arpeggio', 2, 'b'),
+];
+
+// A pulse-wave note that holds, fades a little, then releases; long notes get vibrato
+function voice(wave, freq, t, dur, vol, vibrato) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.setPeriodicWave(wave);
+  o.frequency.setValueAtTime(freq, t);
+  if (vibrato) {
+    const lfo = ctx.createOscillator(), depth = ctx.createGain();
+    lfo.frequency.value = 5.5;
+    depth.gain.setValueAtTime(0, t);
+    depth.gain.linearRampToValueAtTime(freq * 0.006, t + 0.15);
+    lfo.connect(depth);
+    depth.connect(o.frequency);
+    lfo.start(t);
+    lfo.stop(t + dur + 0.05);
+  }
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.006);
+  g.gain.linearRampToValueAtTime(vol * 0.75, t + dur);
+  g.gain.linearRampToValueAtTime(0, t + dur + 0.03);
+  o.connect(g);
+  g.connect(musicOut);
+  o.start(t);
+  o.stop(t + dur + 0.05);
 }
 
-let playing = false, timer = 0;
-let mIdx = 0, mPos = 0, mTime = 0, bIdx = 0, bTime = 0; // mPos: eighth where note mIdx starts
+function playStep(s, t) {
+  if (s.lead) voice(pulse25, s.lead[0], t, s.lead[1] * EIGHTH * 0.92, 0.2, s.lead[1] >= 3);
+  if (s.harm) voice(pulse12, s.harm[0], t, s.harm[1] * EIGHTH * 0.85, 0.07, false);
+  tone(musicOut, s.bass, t, EIGHTH * 0.8, 'triangle', 0.5);
+  if (s.kick) tone(musicOut, 150, t, 0.12, 'sine', 0.55, 45);
+  if (s.snare) {
+    hiss(musicOut, t, 0.12, 1800, 0.3);
+    tone(musicOut, 190, t, 0.05, 'triangle', 0.18);
+  }
+  if (s.openHat) hiss(musicOut, t, 0.12, 7500, 0.09, 'highpass');
+  else hiss(musicOut, t, 0.03, 7500, 0.06, 'highpass');
+}
+
+let playing = false, timer = 0, step = 0, nextAt = 0;
 
 export function musicPlay(fromStart) {
   if (!ctx) return;
-  if (fromStart) { mIdx = 0; mPos = 0; }
+  if (fromStart) step = 0;
   if (playing) return;
   playing = true;
-  bIdx = mPos % BASS.length; // keep the bass in step with the melody after a pause
-  mTime = bTime = ctx.currentTime + 0.06;
+  nextAt = ctx.currentTime + 0.06;
   timer = setInterval(schedule, 50);
   schedule();
 }
@@ -146,19 +227,9 @@ export function musicStop() {
 }
 
 function schedule() {
-  const until = ctx.currentTime + 0.3;
-  while (mTime < until) {
-    const [n, d] = MELODY[mIdx];
-    if (n !== 'R') tone(musicOut, noteHz(n), mTime, d * EIGHTH * 0.9, 'square', 0.18);
-    mTime += d * EIGHTH;
-    mPos += d;
-    mIdx = (mIdx + 1) % MELODY.length;
-    if (mIdx === 0) mPos = 0;
-  }
-  while (bTime < until) {
-    const f = BASS[bIdx];
-    tone(musicOut, bIdx % 2 ? f * 2 : f, bTime, EIGHTH * 0.85, 'triangle', 0.5);
-    bTime += EIGHTH;
-    bIdx = (bIdx + 1) % BASS.length;
+  while (nextAt < ctx.currentTime + 0.3) {
+    playStep(SONG[step], nextAt);
+    nextAt += EIGHTH;
+    step = (step + 1) % SONG.length;
   }
 }
