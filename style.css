@@ -227,6 +227,16 @@ canvas { display: block; }
 .setting input[type="range"] { width: 100%; margin: 0; height: 28px; accent-color: var(--accent); }
 
 .big { font: 700 44px/1 var(--font-num); text-align: center; font-variant-numeric: tabular-nums; }
+#duelRoom { letter-spacing: .18em; user-select: text; -webkit-user-select: text; }
+#duelMsg:empty { display: none; }
+/* iOS won't let you type into a field that has user-select: none */
+.code-input {
+  -webkit-user-select: text; user-select: text;
+  width: 100%; box-sizing: border-box; padding: 12px; border-radius: 10px;
+  border: 1px solid var(--key-hi); background: var(--panel); color: var(--fg);
+  font: 700 26px/1 var(--font-num); letter-spacing: .3em; text-align: center; text-transform: uppercase;
+}
+.code-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sub { font-size: 16px; color: var(--muted); text-align: center; letter-spacing: .04em; }
 .sub.hl { color: #e39f02; }
 .result-text { display: flex; flex-direction: column; gap: 10px; }

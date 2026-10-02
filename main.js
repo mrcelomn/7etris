@@ -1,13 +1,14 @@
 import * as audio from './audio.js';
 import { initPad, placePad, editPad } from './pad.js';
 import { SKINS, drawBlock } from './skins.js';
-import { COLS, ROWS, HID, VIS, SHAPES, rotCW, newBoard, spawnX, bag, collides as hits, stamp, clearLines, exchange } from './rules.js';
+import { COLS, ROWS, HID, VIS, SHAPES, rotCW, newBoard, spawnX, bag, seeded, collides as hits, stamp, clearLines, exchange, packBoard, unpackBoard } from './rules.js';
 import { Bot } from './ai.js';
+import { Duel, newCode } from './duel.js';
 
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 26;
+const VERSION = 27;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -42,19 +43,24 @@ audio.configure(sound);
 
 // ---------- game state ----------
 let state = 'menu'; // menu | play | pause | done | edit
-// '20' | '40' | '100' marathon line goal, 'free', or a battle: 'ai-easy' | 'ai-medium' | 'ai-hard'
+// '20' | '40' | '100' marathon line goal, 'free', a battle against the AI
+// ('ai-easy' | 'ai-medium' | 'ai-hard'), or 'duel' against a friend online
 let mode = '40';
 let board, cur, queue, hold, canHold, lines, pieces, elapsed;
 let dropAcc = 0, lockT = 0, lockResets = 0;
-let bot = null, incoming = 0; // battle only: the AI, and garbage it sent that hasn't landed yet
+let rand = Math.random; // piece order; seeded in a duel so both players get the same pieces
+// Battles only: the opponent ({ board, dead, receive(n) }: the AI or the friend's mirror), and
+// garbage it sent that hasn't landed yet
+let foe = null, incoming = 0;
+let duel = null; // the open connection to a friend, while in a duel
 
 const isMarathon = () => /^\d+$/.test(mode);
-const isBattle = () => mode.startsWith('ai-');
+const isBattle = () => mode.startsWith('ai-') || mode === 'duel';
 const goal = () => (isMarathon() ? Number(mode) : Infinity);
 // Marathon and battle keep 1 row/second like Jstris; free play speeds up 15% every 10 lines
 const gravity = () => (mode === 'free' ? Math.max(80, 1000 * 0.85 ** Math.floor(lines / 10)) : 1000);
 
-function pull() { if (queue.length <= PREVIEW) queue.push(...bag()); return queue.shift(); }
+function pull() { if (queue.length <= PREVIEW) queue.push(...bag(rand)); return queue.shift(); }
 const collides = (m, px, py) => hits(board, m, px, py);
 
 function spawn(t) {
@@ -95,10 +101,11 @@ function lock(hard = false) {
   lines += cleared;
   if (cleared) audio.sfx('clear', cleared); else if (!hard) audio.sfx('lock');
   if (lines >= goal()) return finish(true);
-  if (bot) {
+  if (foe) {
     const [sent, left] = exchange(board, cleared, incoming);
     incoming = left;
-    if (sent) bot.receive(sent);
+    if (sent) foe.receive(sent);
+    if (duel) duel.send({ t: 'board', b: packBoard(board) });
   }
   canHold = true;
   spawn(pull());
@@ -106,23 +113,30 @@ function lock(hard = false) {
 }
 
 // ---------- flow ----------
-const SCREENS = ['menu', 'soundScr', 'skinScr', 'pauseScr', 'result'];
+const SCREENS = ['menu', 'soundScr', 'skinScr', 'duelScr', 'pauseScr', 'result'];
 function show(id) { SCREENS.forEach(s => { $(s).hidden = s !== id; }); }
 const on = (id, fn) => $(id).addEventListener('click', fn);
 
 function clearBoard() {
   board = newBoard(); queue = []; hold = null; canHold = true; cur = null;
   lines = 0; pieces = 0; elapsed = 0;
-  bot = null; incoming = 0;
+  foe = null; incoming = 0;
   $('foeBox').hidden = true;
   drawSide();
 }
 
-function startGame(m) {
+// `seed` is given in a duel, so both phones deal the same pieces
+function startGame(m, seed) {
   mode = m;
+  rand = seed ? seeded(seed) : Math.random;
   clearBoard();
-  if (isBattle()) {
-    bot = new Bot(mode.slice(3), n => { incoming += n; });
+  if (mode === 'duel') {
+    foe = { board: newBoard(), dead: false, receive: n => duel && duel.send({ t: 'atk', n }) };
+  } else if (isBattle()) {
+    foe = new Bot(mode.slice(3), n => { incoming += n; });
+  }
+  if (foe) {
+    $('foeLabel').textContent = mode === 'duel' ? 'AMIGO' : 'IA';
     $('foeBox').hidden = false;
   }
   state = 'play';
@@ -155,8 +169,9 @@ function finish(win) {
   audio.musicStop();
   audio.sfx(win ? 'win' : 'over');
   if (isBattle()) {
+    if (!win && duel) duel.send({ t: 'over' });
     if (win) { records[mode] = (records[mode] || 0) + 1; save('7etris-records', records); }
-    result(win ? 'VITÓRIA!' : 'DERROTA', LEVEL_NAMES[mode], `${records[mode] || 0} ${records[mode] === 1 ? 'vitória' : 'vitórias'} neste nível`);
+    result(win ? 'VITÓRIA!' : 'DERROTA', LEVEL_NAMES[mode], winsText(mode, mode === 'duel' ? 'contra amigos' : 'neste nível'));
   } else if (win) {
     const best = records[mode], isRecord = !best || elapsed < best;
     if (isRecord) { records[mode] = elapsed; save('7etris-records', records); }
@@ -166,8 +181,13 @@ function finish(win) {
     result('FIM DE JOGO', marathon ? `Faltaram ${goal() - lines}` : `${lines} linhas`, fmt(elapsed, marathon ? 2 : 0));
   }
 }
-const LEVEL_NAMES = { 'ai-easy': 'IA FÁCIL', 'ai-medium': 'IA MÉDIA', 'ai-hard': 'IA DIFÍCIL' };
+const LEVEL_NAMES = { 'ai-easy': 'IA FÁCIL', 'ai-medium': 'IA MÉDIA', 'ai-hard': 'IA DIFÍCIL', duel: 'DUELO ONLINE' };
+const winsText = (key, where = '') => {
+  const n = records[key] || 0;
+  return `${n} ${n === 1 ? 'vitória' : 'vitórias'}${where && ' ' + where}`;
+};
 function result(title, main, sub) {
+  $('again').hidden = false;
   $('resTitle').textContent = title;
   $('resMain').textContent = main;
   $('resSub').textContent = sub;
@@ -179,16 +199,27 @@ function result(title, main, sub) {
 function openMenu() {
   state = 'menu';
   audio.musicStop();
+  leaveDuel();
   clearBoard();
   document.querySelectorAll('[data-rec]').forEach(el => {
     const best = records[el.dataset.rec];
     el.textContent = best ? fmt(best, 2) : '—';
   });
   document.querySelectorAll('[data-wins]').forEach(el => {
-    const wins = records[el.dataset.wins] || 0;
-    el.textContent = wins ? `${wins} ${wins === 1 ? 'vitória' : 'vitórias'}` : '—';
+    el.textContent = records[el.dataset.wins] ? winsText(el.dataset.wins) : '—';
   });
   show('menu');
+}
+
+// Play again: in a duel this starts a new round on both phones
+function again() {
+  if (mode === 'duel') duelRound(); else startGame(mode);
+}
+// Deals a duel round: the same random seed goes to the friend, so both get the same pieces
+function duelRound() {
+  const seed = 1 + Math.floor(Math.random() * 2 ** 31);
+  duel.send({ t: 'start', seed });
+  startGame('duel', seed);
 }
 
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
@@ -200,11 +231,54 @@ document.querySelectorAll('[aria-controls]').forEach(btn => btn.addEventListener
 }));
 on('pauseBtn', pause);
 on('resume', resume);
-on('restart', () => startGame(mode));
+on('restart', again);
 on('pauseMenu', openMenu);
-on('again', () => startGame(mode));
+on('again', again);
 on('resMenu', openMenu);
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+// ---------- online duel ----------
+// The duel screen shows either the create/join choices or, once in a room, its code
+function duelStatus(text, room = '') {
+  $('duelHome').hidden = !!room;
+  $('duelWait').hidden = !room;
+  $('duelRoom').textContent = room;
+  $('duelMsg').textContent = text;
+}
+function leaveDuel() {
+  if (duel) duel.close();
+  duel = null;
+}
+function openDuel(how, code) {
+  leaveDuel();
+  duel = new Duel({
+    // The host deals the first round as soon as the friend arrives
+    ready: isHost => { if (isHost) duelRound(); else duelStatus('Conectado! Esperando o jogo começar…', code); },
+    start: seed => startGame('duel', seed),
+    attack: n => { if (mode === 'duel') incoming += n; },
+    board: b => { if (foe && mode === 'duel') foe.board = unpackBoard(b); },
+    over: () => { if (state === 'play' || state === 'pause') finish(true); },
+    closed: () => {
+      duel = null;
+      if (mode === 'duel' && (state === 'play' || state === 'pause' || state === 'done')) {
+        state = 'done'; cur = null; audio.musicStop();
+        result('CONEXÃO PERDIDA', 'O duelo acabou', 'Seu amigo saiu ou ficou sem internet.');
+        $('again').hidden = true;
+      } else duelStatus('A conexão caiu. Tente de novo.');
+    },
+    error: text => { leaveDuel(); duelStatus(text); },
+  });
+  if (how === 'host') { duelStatus('Esperando seu amigo entrar…', code); duel.host(code); }
+  else { duelStatus('Conectando…', code); duel.join(code); }
+}
+on('openDuel', () => { duelStatus(''); $('duelCode').value = ''; show('duelScr'); });
+on('duelCreate', () => openDuel('host', newCode()));
+on('duelJoin', () => {
+  const code = $('duelCode').value.trim().toUpperCase();
+  if (code.length !== 5) return duelStatus('O código tem 5 letras ou números.');
+  openDuel('join', code);
+});
+on('duelBack', () => { leaveDuel(); duelStatus(''); show('menu'); });
 
 // ---------- sound settings ----------
 function renderSound() {
@@ -382,14 +456,14 @@ function drawSide() {
   queue.slice(0, PREVIEW).forEach((t, i) => mini(nctx, t, w / 2, h * i + h / 2, s, 'solid'));
 }
 
-// Battle extras: the AI's board in miniature, and the red bar beside the board showing
+// Battle extras: the opponent's board in miniature, and the red bar beside the board showing
 // garbage on its way to the player (it lands on the next lock that clears nothing)
 function drawBattle() {
   const w = parseFloat($('foe').style.width), s = w / COLS;
   fctx.fillStyle = PANEL; fctx.fillRect(0, 0, w, s * VIS);
   for (let y = HID; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    const t = bot.board[y][x];
-    if (t) block(fctx, x * s, (y - HID) * s, s, t, bot.dead ? 'dead' : 'solid');
+    const t = foe.board[y][x];
+    if (t) block(fctx, x * s, (y - HID) * s, s, t, foe.dead ? 'dead' : 'solid');
   }
   $('meter').style.height = `${(Math.min(incoming, VIS) / VIS) * 100}%`;
 }
@@ -430,14 +504,14 @@ function frame(now) {
       lockT = 0; dropAcc += dt;
       while (cur && dropAcc >= iv) { dropAcc -= iv; if (!tryMove(0, 1)) { dropAcc = 0; break; } }
     }
-    if (bot && state === 'play') {
-      bot.update(real);
-      if (bot.dead) finish(true);
+    if (foe && state === 'play') {
+      if (foe.update) foe.update(real); // the AI thinks; a friend's moves arrive as messages
+      if (foe.dead) finish(true);
     }
   }
   stats();
   if (bctx) drawBoard();
-  if (bot) drawBattle();
+  if (foe) drawBattle();
   requestAnimationFrame(frame);
 }
 

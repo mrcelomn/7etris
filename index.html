@@ -32,7 +32,7 @@
       <div class="board-wrap"><canvas id="board"></canvas><div class="meter" id="meter"></div></div>
       <div class="side right">
         <div><div class="label">NEXT</div><div class="slot"><canvas id="next"></canvas></div></div>
-        <div class="foe" id="foeBox" hidden><div class="label">IA</div><div class="slot"><canvas id="foe"></canvas></div></div>
+        <div class="foe" id="foeBox" hidden><div class="label" id="foeLabel">IA</div><div class="slot"><canvas id="foe"></canvas></div></div>
       </div>
     </div>
     <div class="brand" id="brand" aria-hidden="true">7ETRIS<small>POCKET</small></div>
@@ -83,6 +83,7 @@
         <button class="row" data-mode="ai-medium">MÉDIO<span class="rec" data-wins="ai-medium">—</span></button>
         <button class="row" data-mode="ai-hard">DIFÍCIL<span class="rec" data-wins="ai-hard">—</span></button>
       </div>
+      <button class="row" id="openDuel">DUELO ONLINE<span class="rec" data-wins="duel">—</span></button>
       <button class="row" data-mode="free">LIVRE</button>
     </div>
     <div class="group">
@@ -92,6 +93,26 @@
       <button class="row" id="openPad">CONTROLES<span class="chev side" aria-hidden="true"></span></button>
     </div>
     <div class="ver" id="ver"></div>
+  </div>
+</div>
+
+<div class="ui screen" id="duelScr" hidden>
+  <div class="panel">
+    <h2>DUELO ONLINE</h2>
+    <div class="group" id="duelHome">
+      <button class="row primary" id="duelCreate">CRIAR SALA</button>
+      <div class="setting">
+        <div class="setting-head">ENTRAR NA SALA DE UM AMIGO</div>
+        <input class="code-input" id="duelCode" maxlength="5" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-label="Código da sala">
+        <button class="row plain" id="duelJoin">ENTRAR</button>
+      </div>
+    </div>
+    <div class="result-text" id="duelWait" hidden>
+      <div class="sub">Código da sala</div>
+      <div class="big" id="duelRoom"></div>
+    </div>
+    <div class="sub" id="duelMsg" aria-live="polite"></div>
+    <button class="row plain" id="duelBack">VOLTAR</button>
   </div>
 </div>
 
