@@ -96,7 +96,9 @@ canvas { display: block; }
   flex: none;
   display: flex; justify-content: space-between; align-items: center;
 }
-.dpad { margin-left: 14px; width: var(--dp); height: var(--dp); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); touch-action: none; }
+.dpad { position: relative; margin-left: 14px; width: var(--dp); height: var(--dp); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); touch-action: none; }
+/* Invisible margin around the pad that still counts as touching it */
+.dpad::before { content: ""; position: absolute; inset: -14px; }
 .arm { background: var(--key); position: relative; }
 .arm.up { grid-area: 1 / 2; border-radius: 8px 8px 0 0; }
 .arm.left { grid-area: 2 / 1; border-radius: 8px 0 0 8px; }
@@ -269,7 +271,7 @@ function lock() {
 }
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 12;
+const VERSION = 13;
 $('ver').textContent = 'v' + VERSION;
 
 // `over` is true whenever no game is running: before the first start and after a top-out
@@ -294,7 +296,8 @@ function reset() {
   spawn(pull());
   drawSide(); stats();
 }
-$('startBtn').addEventListener('click', reset);
+// pointerup, not click: touches have their default cancelled, so iOS never sends a click
+$('startBtn').addEventListener('pointerup', reset);
 
 // Gentle speed-up: 1 row/second, 15% faster every 10 lines
 const gravity = () => Math.max(80, 1000 * Math.pow(0.85, Math.floor(lines / 10)));
@@ -320,11 +323,16 @@ function release(k) { delete held[k]; }
 
 const dpad = $('dpad');
 let dpDir = null, dpPointer = null;
+// Any touch on the pad (centre and corners included) picks the nearest arrow. While sliding,
+// a small centre zone keeps the current arrow so a wobbly thumb doesn't flicker.
+// Up is hard drop and can't be undone, so it needs a clearly upward touch.
 function dirFrom(e) {
   const r = dpad.getBoundingClientRect();
   const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-  if (Math.hypot(dx, dy) < r.width * 0.1) return dpDir;
-  return Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+  if (dpDir && Math.hypot(dx, dy) < r.width * 0.08) return dpDir;
+  if (-dy > Math.abs(dx) * 1.3) return 'up';
+  if (dy > Math.abs(dx)) return 'down';
+  return dx < 0 ? 'left' : 'right';
 }
 function setDir(d) {
   if (d === dpDir) return;
@@ -347,10 +355,11 @@ const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', Arro
 addEventListener('keydown', e => { const k = KEYMAP[e.key]; if (!k) return; e.preventDefault(); if (!e.repeat) press(k); });
 addEventListener('keyup', e => { const k = KEYMAP[e.key]; if (k) release(k); });
 
+// Cancelling every touch's default stops iOS from scrolling, zooming, or showing the
+// text magnifier on a long press. Pointer events still arrive, so the controls keep working.
+document.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 document.addEventListener('gesturestart', e => e.preventDefault());
-document.addEventListener('dblclick', e => e.preventDefault());
-document.addEventListener('contextmenu', e => e.preventDefault());
 
 // ---------- drawing ----------
 const css = getComputedStyle(document.documentElement);
