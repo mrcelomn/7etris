@@ -8,7 +8,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 41;
+const VERSION = 42;
 
 // ---------- rules ----------
 const PREVIEW = 5;
@@ -54,7 +54,7 @@ syncAudio();
 
 // ---------- game state ----------
 let state = 'menu'; // menu | play | pause | done | edit
-// '20' | '40' | '100' marathon line goal, 'free', a battle against the AI
+// '20' | '40' | '100' marathon line goal, 'survival', 'practice', a battle against the AI
 // ('ai-easy' | 'ai-medium' | 'ai-hard'), or 'duel' against a friend online
 let mode = '40';
 let board, cur, queue, hold, canHold, lines, pieces, elapsed;
@@ -71,12 +71,12 @@ const isBattle = () => mode.startsWith('ai-') || mode === 'duel';
 const goal = () => (isMarathon() ? Number(mode) : Infinity);
 // Survival: a level every 10 lines, starting at 1
 const level = () => 1 + Math.floor(lines / 10);
-// ms per row. Marathon and battle keep 1 row/second like Jstris; free play speeds up 15% every
-// 10 lines; survival follows the Tetris Guideline curve, (0.8 - (level - 1) * 0.007)^(level - 1) s
+// ms per row. Survival follows the Tetris Guideline curve, (0.8 - (level - 1) * 0.007)^(level - 1)
+// seconds; everything else (marathon, battles, practice) keeps 1 row/second like Jstris
 function gravity() {
-  if (mode === 'survival') { const l = level(); return Math.max(1, 1000 * (0.8 - (l - 1) * 0.007) ** (l - 1)); }
-  if (mode === 'free') return Math.max(80, 1000 * 0.85 ** Math.floor(lines / 10));
-  return 1000;
+  if (mode !== 'survival') return 1000;
+  const l = level();
+  return Math.max(1, 1000 * (0.8 - (l - 1) * 0.007) ** (l - 1));
 }
 
 function pull() { if (queue.length <= PREVIEW) queue.push(...bag(rand)); return queue.shift(); }
