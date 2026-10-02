@@ -81,7 +81,8 @@ canvas { display: block; }
 .over span:empty { display: none; }
 .start {
   margin-top: 10px;
-  padding: 12px 26px; border: 0; border-radius: 999px; cursor: pointer;
+  position: relative;
+  padding: 12px 26px; border-radius: 999px; cursor: pointer;
   background: var(--key-press); color: #fff;
   font: 700 17px/1 var(--font-ui); letter-spacing: .12em;
   touch-action: manipulation;
@@ -129,7 +130,12 @@ canvas { display: block; }
 .round.pressed { background: var(--key-press); border-color: var(--key-press); }
 .round small { font-size: 10px; letter-spacing: .12em; color: var(--muted); }
 .round.pressed small { color: var(--fg); }
-button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px; }
+
+/* Invisible native switch laid over each control: iOS only plays its haptic tick
+   when a finger toggles a switch directly (scripted clicks are ignored since iOS 26.5).
+   clip-path also clips the hit area, so round buttons don't react in their corners. */
+.hap { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.round .hap, .start .hap { clip-path: inset(0 round 999px); }
 </style>
 </head>
 <body>
@@ -145,7 +151,7 @@ button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px;
     </div>
     <div class="board-wrap">
       <canvas id="board"></canvas>
-      <div class="over" id="over" hidden><b id="overTitle">7ETRIS</b><span id="overSub"></span><button class="start" id="startBtn">COMEÇAR</button><small class="ver" id="ver"></small></div>
+      <div class="over" id="over" hidden><b id="overTitle">7ETRIS</b><span id="overSub"></span><div class="start" id="startBtn" role="button"><span id="startLbl">COMEÇAR</span><input class="hap" type="checkbox" switch tabindex="-1" aria-hidden="true"></div><small class="ver" id="ver"></small></div>
     </div>
     <div class="side right">
       <div><div class="label">NEXT</div><div class="slot"><canvas id="next"></canvas></div></div>
@@ -154,11 +160,15 @@ button:focus-visible { outline: 2px solid var(--key-press); outline-offset: 3px;
 
   <div class="controls">
     <div class="dpad" id="dpad" role="group" aria-label="Direcional">
-      <div class="arm up"></div><div class="arm left"></div><div class="arm mid"></div><div class="arm right"></div><div class="arm down"></div>
+      <div class="arm up"><input class="hap" type="checkbox" switch tabindex="-1" aria-hidden="true"></div>
+      <div class="arm left"><input class="hap" type="checkbox" switch tabindex="-1" aria-hidden="true"></div>
+      <div class="arm mid"></div>
+      <div class="arm right"><input class="hap" type="checkbox" switch tabindex="-1" aria-hidden="true"></div>
+      <div class="arm down"><input class="hap" type="checkbox" switch tabindex="-1" aria-hidden="true"></div>
     </div>
     <div class="ab">
-      <button class="round b" data-key="b" aria-label="B: guardar peça">B<small>HOLD</small></button>
-      <button class="round a" data-key="a" aria-label="A: girar">A<small>GIRAR</small></button>
+      <div class="round b" data-key="b" role="button" aria-label="B: guardar peça">B<small>HOLD</small><input class="hap" type="checkbox" switch tabindex="-1" aria-hidden="true"></div>
+      <div class="round a" data-key="a" role="button" aria-label="A: girar">A<small>GIRAR</small><input class="hap" type="checkbox" switch tabindex="-1" aria-hidden="true"></div>
     </div>
   </div>
 </div>
@@ -266,13 +276,13 @@ function lock() {
   drawSide(); stats();
 }
 
-// `over` is true whenever no game is running: before the first start and after a top-out
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 5;
+const VERSION = 6;
 $('ver').textContent = 'v' + VERSION;
 
+// `over` is true whenever no game is running: before the first start and after a top-out
 function showMenu(title, sub, btn) {
-  $('overTitle').textContent = title; $('overSub').textContent = sub; $('startBtn').textContent = btn;
+  $('overTitle').textContent = title; $('overSub').textContent = sub; $('startLbl').textContent = btn;
   $('over').hidden = false;
 }
 function end() {
@@ -292,28 +302,14 @@ function reset() {
   spawn(pull());
   drawSide(); stats();
 }
-$('startBtn').addEventListener('click', () => { haptic(); reset(); });
+$('startBtn').addEventListener('click', reset);
 
 // Gentle speed-up: 1 row/second, 15% faster every 10 lines
 const gravity = () => Math.max(80, 1000 * Math.pow(0.85, Math.floor(lines / 10)));
 
 // ---------- input ----------
-// iOS has no vibration API, but toggling a native switch (iOS 18+) plays the system tap.
-// iOS only allows it on finger release, so every control calls haptic() on pointerup.
-// Android uses navigator.vibrate.
-const hapticSwitch = document.createElement('label');
-hapticSwitch.ariaHidden = 'true';
-hapticSwitch.style.display = 'none';
-hapticSwitch.innerHTML = '<input type="checkbox" switch>';
-function haptic() {
-  try {
-    if (navigator.vibrate) { navigator.vibrate(8); return; }
-    document.head.appendChild(hapticSwitch);
-    hapticSwitch.click();
-    hapticSwitch.remove();
-  } catch (_) {}
-}
-
+// No preventDefault or pointer capture on the controls: the tap has to reach the .hap switch
+// under the finger and end on it, or iOS skips the haptic.
 const held = {};
 function press(k) {
   if (held[k]) return;
@@ -344,17 +340,16 @@ function setDir(d) {
   dpDir = d;
   if (d) { press(d); dpad.dataset.dir = d; } else delete dpad.dataset.dir;
 }
-dpad.addEventListener('pointerdown', e => { e.preventDefault(); dpPointer = e.pointerId; try { dpad.setPointerCapture(e.pointerId); } catch (_) {} setDir(dirFrom(e)); });
-dpad.addEventListener('pointermove', e => { if (e.pointerId === dpPointer) setDir(dirFrom(e)); });
-['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => dpad.addEventListener(t, e => { if (e.pointerId === dpPointer) { dpPointer = null; setDir(null); } }));
-dpad.addEventListener('pointerup', haptic);
+// Move/up are watched on the window so sliding between arrows, or off the pad, still works
+dpad.addEventListener('pointerdown', e => { dpPointer = e.pointerId; setDir(dirFrom(e)); });
+addEventListener('pointermove', e => { if (e.pointerId === dpPointer) setDir(dirFrom(e)); });
+['pointerup', 'pointercancel'].forEach(t => addEventListener(t, e => { if (e.pointerId === dpPointer) { dpPointer = null; setDir(null); } }));
 
 document.querySelectorAll('[data-key]').forEach(b => {
   const k = b.dataset.key;
-  b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (_) {} b.classList.add('pressed'); press(k); });
+  b.addEventListener('pointerdown', () => { b.classList.add('pressed'); press(k); });
   const up = () => { b.classList.remove('pressed'); release(k); };
-  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => b.addEventListener(t, up));
-  b.addEventListener('pointerup', haptic);
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => b.addEventListener(t, up));
 });
 
 const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'up', ' ': 'up', x: 'a', X: 'a', c: 'b', C: 'b', Shift: 'b' };
