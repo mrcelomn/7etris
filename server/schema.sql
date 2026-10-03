@@ -5,14 +5,6 @@ CREATE TABLE IF NOT EXISTS users (
   data TEXT NOT NULL DEFAULT '{}',
   created INTEGER NOT NULL
 );
--- Ranked games in progress: the pieces the server dealt and when
-CREATE TABLE IF NOT EXISTS runs (
-  id TEXT PRIMARY KEY,
-  user_id INTEGER NOT NULL,
-  mode TEXT NOT NULL,
-  seed INTEGER NOT NULL,
-  started INTEGER NOT NULL
-);
 -- Each player's best checked score per ranked mode: ms for marathon, lines for survival
 CREATE TABLE IF NOT EXISTS records (
   user_id INTEGER NOT NULL,

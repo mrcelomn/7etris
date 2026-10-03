@@ -204,15 +204,15 @@ canvas { display: block; }
 [aria-expanded="true"] .chev { transform: rotate(-135deg); margin-top: 4px; }
 .cascade { display: flex; flex-direction: column; gap: 8px; padding-left: 14px; }
 
-/* Gear in the menu's top-right corner, opening the settings */
-.gear {
-  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 16px;
-  width: 42px; height: 42px; padding: 0; border-radius: 50%; cursor: pointer;
+/* Round icon buttons: the gear in the menu's top-right corner (settings), the ranking bars */
+.gear { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 16px; }
+.icon-btn {
+  flex: none; width: 42px; height: 42px; padding: 0; border-radius: 50%; cursor: pointer;
   background: var(--key); border: 1px solid var(--key-hi); color: var(--muted);
   display: flex; align-items: center; justify-content: center;
 }
-.gear:active { background: var(--key-hi); }
-.gear svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn:active { background: var(--key-hi); }
+.icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* A settings row that isn't a button itself (it holds the sun / moon switch) */
 .row.static { cursor: default; padding-block: 9px; }
@@ -262,10 +262,14 @@ canvas { display: block; }
 .result-text { display: flex; flex-direction: column; gap: 10px; }
 .ver { font: 500 11px/1 var(--font-num); color: var(--muted); text-align: center; }
 
-/* Account button in the menu's top-left corner: the player's name, or VISITANTE */
+/* Menu's top-left corner: the account (the player's name, or VISITANTE) and the ranking */
+.corner {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 16px; right: 74px;
+  display: flex; gap: 8px;
+}
+#openRanking svg { stroke-width: 3; }
 .profile {
-  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 16px;
-  height: 42px; max-width: calc(100% - 90px); padding: 0 16px; border-radius: 999px; cursor: pointer;
+  min-width: 0; height: 42px; padding: 0 16px; border-radius: 999px; cursor: pointer;
   background: var(--key); border: 1px solid var(--key-hi); color: var(--fg);
   font-size: 14px; font-weight: 700; letter-spacing: .06em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -429,12 +433,12 @@ canvas { display: block; }
 [data-skin="obra"] .ver { font-size: 15px; }
 
 /* Shared by both retro skins: square corners, ruled borders, pressed = inverted */
-:is([data-skin="gameboy"], [data-skin="obra"]) :is(.row, .setting, .key, .gear, .profile, .rank li, .theme, .theme button, .toggle, .code-input, .pause-btn, .editbar, .arm) { border-radius: 0; }
+:is([data-skin="gameboy"], [data-skin="obra"]) :is(.row, .setting, .key, .icon-btn, .profile, .rank li, .theme, .theme button, .toggle, .code-input, .pause-btn, .editbar, .arm) { border-radius: 0; }
 :is([data-skin="gameboy"], [data-skin="obra"]) .toggle::after { border-radius: 0; }
-:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row, .setting, .key, .gear, .profile, .rank li, .code-input, .theme) {
+:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row, .setting, .key, .icon-btn, .profile, .rank li, .code-input, .theme) {
   border: 2px solid var(--fg); background: var(--key); color: var(--fg);
 }
-:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row:not(.static), .key, .gear, .profile):active,
+:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row:not(.static), .key, .icon-btn, .profile):active,
 :is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row.primary, .key.primary, .key.on) {
   background: var(--fg); color: var(--key); border-color: var(--fg); filter: none; transform: none;
 }
