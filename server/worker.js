@@ -75,7 +75,8 @@ const routes = {
     const id = [...crypto.getRandomValues(new Uint8Array(12))].map(b => b.toString(16).padStart(2, '0')).join('');
     const seed = crypto.getRandomValues(new Uint32Array(1))[0] | 1;
     await db.batch([
-      db.prepare('DELETE FROM runs WHERE user_id = ? AND started < ?').bind(me.id, Date.now() - 7 * 864e5),
+      // Games are dealt ahead for offline play; keep a player's 20 newest, for up to 30 days
+      db.prepare('DELETE FROM runs WHERE user_id = ? AND (started < ? OR id NOT IN (SELECT id FROM runs WHERE user_id = ? ORDER BY started DESC LIMIT 19))').bind(me.id, Date.now() - 30 * 864e5, me.id),
       db.prepare('INSERT INTO runs (id, user_id, mode, seed, started) VALUES (?, ?, ?, ?, ?)').bind(id, me.id, mode, seed, Date.now()),
     ]);
     return json({ id, seed });

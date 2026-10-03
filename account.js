@@ -3,7 +3,9 @@
 
 const API = 'https://7etris.7etris-jogo.workers.dev';
 const KEY = '7etris-account'; // { name, code } signed in, { guest: true } visitor, absent: not chosen yet
-const PENDING = '7etris-pending'; // finished ranked games still to send: [{ id, replay }]
+const PENDING = '7etris-pending'; // finished ranked games still to send: [{ id, replay, tries }]
+// Ranked games dealt ahead of time, so one played without internet still counts: { mode: [{ id, seed }] }
+const TICKETS = '7etris-tickets', STOCK = 2;
 
 const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (_) { return fallback; } };
 const write = (key, v) => { try { if (v == null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(v)); } catch (_) {} };
@@ -27,7 +29,9 @@ async function call(method, path, body, timeout = 8000) {
 }
 
 export function playAsGuest() { session = { guest: true }; write(KEY, session); }
-export function signOut() { playAsGuest(); write(PENDING, null); }
+// Games dealt to or played by another account don't belong to the new one
+const forget = () => { write(PENDING, null); write(TICKETS, null); };
+export function signOut() { playAsGuest(); forget(); }
 
 // Both return { error } or the account: { name, data, records }
 export async function signUp(name, data) {
@@ -35,6 +39,7 @@ export async function signUp(name, data) {
   if (!res.ok) return { error: res.body.error || 'Não deu para criar a conta.' };
   session = { name: res.body.name, code: res.body.code };
   write(KEY, session);
+  forget();
   return { name: session.name, data, records: {} };
 }
 export async function signIn(code) {
@@ -47,6 +52,7 @@ export async function signIn(code) {
   }
   session.name = res.body.name;
   write(KEY, session);
+  forget();
   return res.body;
 }
 export async function fetchMe() {
@@ -62,11 +68,35 @@ export function saveData(data) {
   saveTimer = setTimeout(() => call('PUT', '/me', { data }), 1500);
 }
 
-// A ranked game: the server deals the pieces. null means play it unranked (no connection).
+// A ranked game: pieces the server dealt ahead of time, or asked for now if none are left.
+// null means play it unranked (no connection, nothing in stock).
 export async function startRun(mode) {
   if (!signedIn()) return null;
+  const stock = read(TICKETS, {}), ticket = (stock[mode] || []).shift();
+  write(TICKETS, stock);
+  if (ticket) return ticket;
   const res = await call('POST', '/runs', { mode }, 3000);
   return res.ok ? res.body : null;
+}
+// Keeps STOCK games dealt per ranked mode, ready for when there's no connection
+let stocking = false;
+export async function stockRuns(modes) {
+  if (!signedIn() || stocking) return;
+  stocking = true;
+  try {
+    for (const mode of modes) {
+      while (true) {
+        const stock = read(TICKETS, {});
+        if ((stock[mode] || []).length >= STOCK) break;
+        const res = await call('POST', '/runs', { mode });
+        if (!res.ok) return;
+        const now = read(TICKETS, {});
+        write(TICKETS, { ...now, [mode]: [...(now[mode] || []), res.body] });
+      }
+    }
+  } finally {
+    stocking = false;
+  }
 }
 // Sends a finished ranked game for the server to check: { score, best, record, rank }, { error },
 // or { offline: true } when it's kept to send again later

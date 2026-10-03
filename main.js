@@ -10,7 +10,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 46;
+const VERSION = 47;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
@@ -96,6 +96,7 @@ async function startGame(m, seed) {
     run = await account.startRun(m);
     if (state !== 'starting') return; // left in the meantime
     if (run) seed = run.seed;
+    account.stockRuns(RANKED); // deal the next one while there's a connection
   }
   const rand = seed ? seeded(seed) : Math.random;
   game = new Game(m, rand, {
@@ -146,7 +147,7 @@ function finish(win) {
   } else if (mode === 'survival' || win) {
     const main = win ? fmt(elapsed, 2) : `NÍVEL ${level}`;
     result(win ? `${mode} LINHAS` : 'FIM DE JOGO', main, '');
-    if (run) checkRun(run, game.replay);
+    if (run) checkRun(run, game.replay, win ? elapsed : level);
     else if (account.signedIn()) $('resSub').textContent = 'Sem internet: não valeu para o ranking';
     else localRecord(win, elapsed, level);
   } else {
@@ -168,16 +169,20 @@ function localRecord(win, elapsed, level) {
 }
 // Signed in, the server replays the game and answers with the checked score and the ranking place
 const scoreText = (m, score) => (m === 'survival' ? `nível ${1 + Math.floor(score / 10)}` : fmt(score, 2));
-async function checkRun(r, replay) {
+// `value` is this game's time (marathon) or level (survival), shown until the server's answer comes
+async function checkRun(r, replay, value) {
   const m = mode, sub = $('resSub');
   sub.textContent = 'Conferindo…';
   const res = await account.finishRun(r.id, replay);
   if (res.best !== undefined) {
     records[m] = m === 'survival' ? 1 + Math.floor(res.best / 10) : res.best;
     saveRecords();
+  } else if (res.offline && !(records[m] && (m === 'survival' ? value <= records[m] : value >= records[m]))) {
+    records[m] = value; // the menu shows it right away; the server confirms it later
+    saveRecords();
   }
   if (game && game.mode !== m) return; // already playing something else
-  if (res.offline) sub.textContent = 'Sem internet: vai para o ranking quando a conexão voltar';
+  if (res.offline) sub.textContent = 'Sem internet: a partida fica salva e vai para o ranking quando a conexão voltar';
   else if (res.error) sub.textContent = res.error;
   else sub.textContent = `${res.record ? 'NOVO RECORDE!' : `Recorde: ${scoreText(m, res.best)}`} · ${res.rank}º no ranking`;
 }
@@ -277,6 +282,7 @@ on('accCreate', () => busy($('accCreate'), async () => {
   if (res.error) { $('accMsg').textContent = res.error; return; }
   useAccountRecords(res);
   renderRecords();
+  account.stockRuns(RANKED);
   openAccount();
   $('accMsg').textContent = 'Conta criada! Anote o código.';
 }));
@@ -623,14 +629,19 @@ applyLook();
 resize();
 openMenu();
 if (!account.session) openAccount(true);
-// Signed in: send games that couldn't be checked before, then bring the records up to date
-if (account.signedIn()) {
-  account.sendPending().then(() => account.fetchMe()).then(me => {
-    if (!me) return;
-    useAccountRecords(me);
-    if (state === 'menu') renderRecords();
-  });
+// Signed in, whenever there's a connection: send the games saved offline, bring the records up
+// to date and deal games ahead for the next time there's none
+async function catchUp() {
+  if (!account.signedIn()) return;
+  await account.sendPending();
+  const me = await account.fetchMe();
+  if (!me) return;
+  useAccountRecords(me);
+  if (state === 'menu') renderRecords();
+  account.stockRuns(RANKED);
 }
+catchUp();
+addEventListener('online', catchUp);
 requestAnimationFrame(t => { last = Math.floor(t); frame(t); });
 addEventListener('resize', resize);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize).catch(() => {});
