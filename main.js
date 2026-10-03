@@ -10,7 +10,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 47;
+const VERSION = 48;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
@@ -62,12 +62,12 @@ function syncAudio() {
 syncAudio();
 
 // ---------- game state ----------
-let state = 'menu'; // menu | starting | play | pause | done | edit
+let state = 'menu'; // menu | play | pause | done | edit
 // '20' | '40' | '100' marathon line goal, 'survival', 'practice', a battle against the AI
 // ('ai-easy' | 'ai-medium' | 'ai-hard'), or 'duel' against a friend online
 let mode = '40';
 let game = null; // the player's game (engine.js); null on the menu
-let run = null; // the server's ranked game ({ id, seed }) this one is, if any
+let ranked = null; // the seed of this game's pieces, when it counts for the ranking
 // Battles only: the opponent ({ board, dead, receive(n) }: the AI or the friend's mirror)
 let foe = null;
 let duel = null; // the open connection to a friend, while in a duel
@@ -86,25 +86,19 @@ function show(id) {
 }
 const on = (id, fn) => $(id).addEventListener('click', fn);
 
-// `seed` is given in a duel, so both phones deal the same pieces. Signed in, a ranked mode asks
-// the server for its pieces first; without a connection the game is played unranked.
-async function startGame(m, seed) {
+// `seed` is given in a duel, so both phones deal the same pieces. Signed in, a ranked mode deals
+// from a seed too, which goes to the server with the recording so it can replay the game.
+function startGame(m, seed) {
   mode = m;
-  run = null;
-  if (!seed && RANKED.includes(m) && account.signedIn()) {
-    state = 'starting';
-    run = await account.startRun(m);
-    if (state !== 'starting') return; // left in the meantime
-    if (run) seed = run.seed;
-    account.stockRuns(RANKED); // deal the next one while there's a connection
-  }
+  ranked = !seed && RANKED.includes(m) && account.signedIn() ? crypto.getRandomValues(new Uint32Array(1))[0] | 1 : null;
+  if (ranked) seed = ranked;
   const rand = seed ? seeded(seed) : Math.random;
   game = new Game(m, rand, {
     sfx: audio.sfx,
     end: finish,
     sent: n => foe.receive(n),
     locked: () => { if (duel) duel.send({ t: 'board', b: packBoard(game.board) }); },
-  }, !!run);
+  }, !!ranked);
   foe = null;
   if (mode === 'duel') {
     foe = { board: newBoard(), dead: false, receive: n => duel && duel.send({ t: 'atk', n }) };
@@ -147,8 +141,7 @@ function finish(win) {
   } else if (mode === 'survival' || win) {
     const main = win ? fmt(elapsed, 2) : `NÍVEL ${level}`;
     result(win ? `${mode} LINHAS` : 'FIM DE JOGO', main, '');
-    if (run) checkRun(run, game.replay, win ? elapsed : level);
-    else if (account.signedIn()) $('resSub').textContent = 'Sem internet: não valeu para o ranking';
+    if (ranked) checkGame(ranked, game.replay, win ? elapsed : level);
     else localRecord(win, elapsed, level);
   } else {
     const marathon = isMarathon(mode);
@@ -167,13 +160,14 @@ function localRecord(win, elapsed, level) {
     $('resSub').textContent = isRecord ? 'NOVO RECORDE!' : `Recorde: nível ${best}`;
   }
 }
-// Signed in, the server replays the game and answers with the checked score and the ranking place
+// Signed in, the server replays the game and answers with the checked score and the ranking place.
+// Without internet the game is kept and sent once there's a connection again.
 const scoreText = (m, score) => (m === 'survival' ? `nível ${1 + Math.floor(score / 10)}` : fmt(score, 2));
 // `value` is this game's time (marathon) or level (survival), shown until the server's answer comes
-async function checkRun(r, replay, value) {
+async function checkGame(seed, replay, value) {
   const m = mode, sub = $('resSub');
   sub.textContent = 'Conferindo…';
-  const res = await account.finishRun(r.id, replay);
+  const res = await account.sendGame({ mode: m, seed, replay });
   if (res.best !== undefined) {
     records[m] = m === 'survival' ? 1 + Math.floor(res.best / 10) : res.best;
     saveRecords();
@@ -217,7 +211,7 @@ function openMenu() {
   state = 'menu';
   audio.musicStop();
   leaveDuel();
-  game = null; foe = null; run = null;
+  game = null; foe = null; ranked = null;
   $('foeBox').hidden = true;
   renderRecords();
   show('menu');
@@ -282,7 +276,6 @@ on('accCreate', () => busy($('accCreate'), async () => {
   if (res.error) { $('accMsg').textContent = res.error; return; }
   useAccountRecords(res);
   renderRecords();
-  account.stockRuns(RANKED);
   openAccount();
   $('accMsg').textContent = 'Conta criada! Anote o código.';
 }));
@@ -629,8 +622,7 @@ applyLook();
 resize();
 openMenu();
 if (!account.session) openAccount(true);
-// Signed in, whenever there's a connection: send the games saved offline, bring the records up
-// to date and deal games ahead for the next time there's none
+// Signed in, whenever there's a connection: send the games saved offline and bring the records up to date
 async function catchUp() {
   if (!account.signedIn()) return;
   await account.sendPending();
@@ -638,7 +630,6 @@ async function catchUp() {
   if (!me) return;
   useAccountRecords(me);
   if (state === 'menu') renderRecords();
-  account.stockRuns(RANKED);
 }
 catchUp();
 addEventListener('online', catchUp);
