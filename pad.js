@@ -99,17 +99,19 @@ export function placePad() {
 
 // ---------- playing ----------
 const dpad = els.dpad;
-let dpDir = null, dpPointer = null;
-// A finger on an arm is that arm's arrow, wherever on the arm it lands. Elsewhere (the centre
-// square, the corners, the invisible margin) it picks the nearest arrow by angle; there a small
-// centre zone keeps the current arrow so a wobbly thumb doesn't flicker, and up (hard drop,
-// which can't be undone) needs a clearly upward touch.
-function dirFrom(e) {
+let dpDir = null, dpPointer = null, dpSpent = false;
+const armAt = e => {
   const arm = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-arrow]');
-  if (arm && dpad.contains(arm)) return arm.dataset.arrow;
+  return arm && dpad.contains(arm) ? arm.dataset.arrow : null;
+};
+// A touch on an arm is that arm's arrow, wherever on the arm it lands. Elsewhere (the centre
+// square, the corners, the invisible margin) it picks the nearest arrow by angle, with up (hard
+// drop, which can't be undone) needing a clearly upward touch.
+function dirFrom(e) {
+  const arm = armAt(e);
+  if (arm) return arm;
   const r = dpad.getBoundingClientRect();
   const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-  if (dpDir && Math.hypot(dx, dy) < r.width * 0.08) return dpDir;
   if (-dy > Math.abs(dx) * 1.3) return 'up';
   if (dy > Math.abs(dx)) return 'down';
   return dx < 0 ? 'left' : 'right';
@@ -128,9 +130,18 @@ dpad.addEventListener('pointerdown', e => {
   setDir(null);
   dpPointer = e.pointerId;
   try { dpad.setPointerCapture(e.pointerId); } catch (_) {}
-  setDir(dirFrom(e));
+  const d = dirFrom(e);
+  dpSpent = d === 'up';
+  setDir(d);
 });
-dpad.addEventListener('pointermove', e => { if (e.pointerId === dpPointer) setDir(dirFrom(e)); });
+// Sliding the thumb changes arrow only once it's on another arm, so a wobble into the centre or
+// the margin keeps the current one. After a hard drop the touch is done until the thumb lifts:
+// a slip sideways would otherwise move the next piece.
+dpad.addEventListener('pointermove', e => {
+  if (e.pointerId !== dpPointer || dpSpent) return;
+  const arm = armAt(e);
+  if (arm) { dpSpent = arm === 'up'; setDir(arm); }
+});
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => dpad.addEventListener(t, e => {
   if (e.pointerId === dpPointer) { dpPointer = null; setDir(null); }
 }));
