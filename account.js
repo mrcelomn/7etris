@@ -2,7 +2,9 @@
 // Without one the player is a visitor, whose data stays on this phone and out of the ranking.
 
 const API = 'https://7etris.7etris-jogo.workers.dev';
-const KEY = '7etris-account'; // { name, code } signed in, { guest: true } visitor, absent: not chosen yet
+// { name, code, saved } signed in (saved: kept in this phone's passwords), { guest: true } visitor,
+// absent: not chosen yet
+const KEY = '7etris-account';
 const PENDING = '7etris-pending'; // finished ranked games still to send: [{ mode, seed, replay, tries }]
 
 const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (_) { return fallback; } };
@@ -40,7 +42,7 @@ export async function signUp(name, data) {
   forget();
   return { name: session.name, data, records: {} };
 }
-export async function signIn(code) {
+export async function signIn(code, saved = false) {
   const prev = session;
   session = { code: code.toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/^(.{4})(.+)$/, '$1-$2') };
   const res = await call('GET', '/me');
@@ -49,10 +51,34 @@ export async function signIn(code) {
     return { error: res.status === 401 ? 'Código não encontrado.' : res.body.error || 'Não deu para entrar.' };
   }
   session.name = res.body.name;
+  session.saved = saved;
   write(KEY, session);
   forget();
   return res.body;
 }
+// The account kept in the phone's password manager (iCloud Keychain on iPhone, Google Password
+// Manager on Android) as a passkey whose user id is the code itself: it survives removing the
+// home-screen shortcut, and Face ID or a fingerprint brings it back from a list of the saved accounts
+export const canSaveOnDevice = () => !!window.PublicKeyCredential;
+const challenge = () => crypto.getRandomValues(new Uint8Array(32));
+export async function saveOnDevice() {
+  await navigator.credentials.create({ publicKey: {
+    rp: { name: '7etris' },
+    user: { id: new TextEncoder().encode(session.code), name: session.name, displayName: session.name },
+    challenge: challenge(),
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+    authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+    attestation: 'none',
+  } });
+  session.saved = true;
+  write(KEY, session);
+}
+// The code of the account picked from the phone's list; throws if the player cancels
+export async function codeFromDevice() {
+  const cred = await navigator.credentials.get({ publicKey: { challenge: challenge(), userVerification: 'required' } });
+  return new TextDecoder().decode(cred.response.userHandle);
+}
+
 // The account, null without a connection, or { gone: true } when the server no longer has it
 export async function fetchMe() {
   const res = await call('GET', '/me');
