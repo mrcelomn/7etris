@@ -10,7 +10,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 49;
+const VERSION = 50;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
@@ -252,6 +252,8 @@ function openAccount(firstTime = false) {
   $('accGuest').hidden = signed;
   $('accUser').hidden = !signed;
   if (signed) { $('accUserName').textContent = account.session.name; $('accUserCode').textContent = account.session.code; }
+  $('accDevice').hidden = !account.canSaveOnDevice();
+  $('accSave').hidden = !account.canSaveOnDevice() || !!account.session?.saved;
   $('accName').value = ''; $('accCode').value = ''; $('accMsg').textContent = '';
   $('accBack').textContent = firstTime ? 'JOGAR COMO VISITANTE' : 'VOLTAR';
   show('accountScr');
@@ -287,13 +289,27 @@ on('accCreate', () => busy($('accCreate'), async () => {
   useAccountRecords(res);
   renderRecords();
   openAccount();
-  $('accMsg').textContent = 'Conta criada! Anote o código.';
+  $('accMsg').textContent = 'Conta criada! Anote o código ou salve a conta no celular.';
 }));
 on('accEnter', () => busy($('accEnter'), async () => {
   $('accMsg').textContent = 'Entrando…';
   const res = await account.signIn($('accCode').value);
   if (res.error) { $('accMsg').textContent = res.error; return; }
   useAccount(res);
+}));
+// Signing in from the accounts saved in the phone's passwords
+on('accDevice', () => busy($('accDevice'), async () => {
+  let code;
+  try { code = await account.codeFromDevice(); } catch (_) { $('accMsg').textContent = 'Nenhuma conta escolhida.'; return; }
+  $('accMsg').textContent = 'Entrando…';
+  const res = await account.signIn(code, true);
+  if (res.error) { $('accMsg').textContent = res.error; return; }
+  useAccount(res);
+}));
+on('accSave', () => busy($('accSave'), async () => {
+  try { await account.saveOnDevice(); } catch (_) { $('accMsg').textContent = 'A conta não foi salva.'; return; }
+  $('accSave').hidden = true;
+  $('accMsg').textContent = 'Conta salva! Para entrar de novo, toque em CONTAS SALVAS NO CELULAR.';
 }));
 on('accCopy', async () => {
   try { await navigator.clipboard.writeText(account.session.code); $('accMsg').textContent = 'Código copiado.'; } catch (_) {}
