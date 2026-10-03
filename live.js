@@ -7,9 +7,10 @@ const EVERY = 200; // ms between updates
 
 let ws = null, watching = false, lastSent = 0;
 
-export function start() {
+// `code`: the player's account code, so the page shows their name (none for a visitor)
+export function start(code) {
   stop();
-  try { ws = new WebSocket(SOCKET); } catch (_) { return; }
+  try { ws = new WebSocket(code ? `${SOCKET}?as=${encodeURIComponent(code)}` : SOCKET); } catch (_) { return; }
   const me = ws;
   ws.onmessage = e => {
     try { const m = JSON.parse(e.data); if (m.t === 'watch') { watching = m.on; lastSent = 0; } } catch (_) {}
