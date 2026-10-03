@@ -10,7 +10,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 50;
+const VERSION = 51;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
