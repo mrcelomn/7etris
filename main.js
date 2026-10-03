@@ -1,32 +1,19 @@
 import * as audio from './audio.js';
+import * as account from './account.js';
 import { initPad, placePad, editPad } from './pad.js';
 import { SKINS, drawBlock, setInk } from './skins.js';
-import { COLS, ROWS, HID, VIS, SHAPES, rotCW, newBoard, spawnX, bag, seeded, collides as hits, stamp, clearLines, exchange, solidRowsAt, addSolid, packBoard, unpackBoard } from './rules.js';
+import { COLS, ROWS, HID, VIS, SHAPES, newBoard, seeded, packBoard, unpackBoard } from './rules.js';
+import { Game, PREVIEW, isMarathon, isBattle } from './engine.js';
 import { Bot } from './ai.js';
 import { Duel, newCode } from './duel.js';
 
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 45;
+const VERSION = 46;
 
-// ---------- rules ----------
-const PREVIEW = 5;
-// SRS clockwise wall kicks, indexed by the rotation state we leave (y is flipped: + is down)
-const KICKS = [
-  [[0,0],[-1,0],[-1,-1],[0,2],[-1,2]],
-  [[0,0],[1,0],[1,1],[0,-2],[1,-2]],
-  [[0,0],[1,0],[1,-1],[0,2],[1,2]],
-  [[0,0],[-1,0],[-1,1],[0,-2],[-1,-2]],
-];
-const KICKS_I = [
-  [[0,0],[-2,0],[1,0],[-2,1],[1,-2]],
-  [[0,0],[-1,0],[2,0],[-1,-2],[2,1]],
-  [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
-  [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
-];
-// Side moves: first repeat after DAS ms, then one cell every ARR ms while held
-const DAS = 130, ARR = 22, SOFT = 25, LOCK = 500, MAX_RESETS = 15;
+// Modes with a ranking: games played signed in are checked by the server (see account.js)
+const RANKED = ['20', '40', '100', 'survival'];
 
 // ---------- saved data ----------
 function load(key, fallback) {
@@ -35,10 +22,32 @@ function load(key, fallback) {
 function save(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
 }
-// Best marathon time in ms keyed by line goal ('20'…), and battle wins keyed by mode ('ai-easy'…)
-const records = load('7etris-records', {});
+// Best marathon time in ms keyed by line goal ('20'…), highest survival level ('survival') and
+// battle wins keyed by mode ('ai-easy'…). Signed in, the first two are the server's checked ones.
+let records = load('7etris-records', {});
 const sound = load('7etris-audio', { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false, pack: 'classic' });
 const look = load('7etris-look', { skin: 'classic', theme: 'dark' });
+// v15 changed the default controls back to the Game Boy layout; drop layouts saved for the old shapes
+try { localStorage.removeItem('7etris-pad'); } catch (_) {}
+// No saved layout means the default one, fitted to this screen
+let savedPad = null;
+try { savedPad = JSON.parse(localStorage.getItem('7etris-pad-2')); } catch (_) {}
+
+// What follows the account from phone to phone: settings and battle wins
+const WINS = ['ai-easy', 'ai-medium', 'ai-hard', 'duel'];
+function accountData() {
+  return { sound, look, pad: savedPad, wins: Object.fromEntries(WINS.filter(k => records[k]).map(k => [k, records[k]])) };
+}
+const sync = () => account.saveData(accountData());
+function saveRecords() { save('7etris-records', records); }
+// The account's records: battle wins from its data, checked scores from the server
+// (survival comes as lines cleared and shows as the level reached)
+function useAccountRecords(me) {
+  const checked = { ...me.records };
+  if ('survival' in checked) checked.survival = 1 + Math.floor(checked.survival / 10);
+  records = { ...(me.data && me.data.wins), ...checked };
+  saveRecords();
+}
 
 // CLÁSSICO means "the look's own sound": the Game Boy and Obra Dinn skins have their own music
 // and effects, every other skin the game's default. Any other pack plays its effects over the
@@ -53,105 +62,20 @@ function syncAudio() {
 syncAudio();
 
 // ---------- game state ----------
-let state = 'menu'; // menu | play | pause | done | edit
+let state = 'menu'; // menu | starting | play | pause | done | edit
 // '20' | '40' | '100' marathon line goal, 'survival', 'practice', a battle against the AI
 // ('ai-easy' | 'ai-medium' | 'ai-hard'), or 'duel' against a friend online
 let mode = '40';
-let board, cur, queue, hold, canHold, lines, pieces, elapsed;
-let dropAcc = 0, lockT = 0, lockResets = 0;
-let combo = 0; // pieces in a row that cleared lines; drives the rising combo sound
-let rand = Math.random; // piece order; seeded in a duel so both players get the same pieces
-// Battles only: the opponent ({ board, dead, receive(n) }: the AI or the friend's mirror),
-// garbage it sent that hasn't landed yet, and solid garbage rows risen so far
-let foe = null, incoming = 0, solidRows = 0;
+let game = null; // the player's game (engine.js); null on the menu
+let run = null; // the server's ranked game ({ id, seed }) this one is, if any
+// Battles only: the opponent ({ board, dead, receive(n) }: the AI or the friend's mirror)
+let foe = null;
 let duel = null; // the open connection to a friend, while in a duel
 
-const isMarathon = () => /^\d+$/.test(mode);
-const isBattle = () => mode.startsWith('ai-') || mode === 'duel';
-const goal = () => (isMarathon() ? Number(mode) : Infinity);
-// Survival: a level every 10 lines, starting at 1
-const level = () => 1 + Math.floor(lines / 10);
-// ms per row. Survival follows the Tetris Guideline curve, (0.8 - (level - 1) * 0.007)^(level - 1)
-// seconds; everything else (marathon, battles, practice) keeps 1 row/second like Jstris
-function gravity() {
-  if (mode !== 'survival') return 1000;
-  const l = level();
-  return Math.max(1, 1000 * (0.8 - (l - 1) * 0.007) ** (l - 1));
-}
-
-function pull() { if (queue.length <= PREVIEW) queue.push(...bag(rand)); return queue.shift(); }
-const collides = (m, px, py) => hits(board, m, px, py);
-
-function spawn(t) {
-  const m = SHAPES[t].map(r => r.slice());
-  cur = { t, m, r: 0, x: spawnX(m), y: HID - 1 };
-  dropAcc = 0; lockT = 0; lockResets = 0;
-  if (collides(cur.m, cur.x, cur.y)) finish(false);
-}
-
-function bumpLock() { if (lockT > 0 && lockResets < MAX_RESETS) { lockT = 0; lockResets++; } }
-function tryMove(dx, dy) {
-  if (collides(cur.m, cur.x + dx, cur.y + dy)) return false;
-  cur.x += dx; cur.y += dy; bumpLock(); return true;
-}
-function rotate() {
-  if (cur.t === 'O') return false;
-  const m = rotCW(cur.m);
-  for (const [kx, ky] of (cur.t === 'I' ? KICKS_I : KICKS)[cur.r]) {
-    if (!collides(m, cur.x + kx, cur.y + ky)) { cur.m = m; cur.x += kx; cur.y += ky; cur.r = (cur.r + 1) % 4; bumpLock(); return true; }
-  }
-  return false;
-}
-function holdPiece() {
-  if (!canHold) return;
-  const t = cur.t;
-  audio.sfx('hold');
-  spawn(hold || pull());
-  hold = t; canHold = false;
-  drawSide();
-}
-function ghostY() { let y = cur.y; while (!collides(cur.m, cur.x, y + 1)) y++; return y; }
-function hardDrop() { cur.y = ghostY(); audio.sfx('drop'); lock(true); }
-
-function lock(hard = false) {
-  pieces++;
-  if (!stamp(board, cur.m, cur.x, cur.y, cur.t)) return finish(false);
-  const cleared = clearLines(board);
-  lines += cleared;
-  const chain = combo; // this clear's place in the combo
-  if (cleared) {
-    audio.sfx('clear', chain);
-    combo++;
-  } else {
-    combo = 0;
-    if (!hard) audio.sfx('lock');
-  }
-  if (lines >= goal()) return finish(true);
-  if (foe) {
-    const [sent, left] = exchange(board, cleared, incoming, chain);
-    incoming = left;
-    if (sent) foe.receive(sent);
-    if (duel) duel.send({ t: 'board', b: packBoard(board) });
-  }
-  canHold = true;
-  spawn(pull());
-  drawSide();
-}
-
-// Battle hurry-up: solid rows rise on their schedule. One that lifts the stack into the falling
-// piece nudges the piece up a row; one that pushes blocks off the top ends the game.
-function raiseSolids() {
-  for (const due = solidRowsAt(elapsed); solidRows < due; solidRows++) {
-    if (!addSolid(board)) return finish(false);
-    if (collides(cur.m, cur.x, cur.y)) {
-      cur.y--;
-      if (collides(cur.m, cur.x, cur.y)) return finish(false);
-    }
-  }
-}
+const goal = () => (isMarathon(mode) ? Number(mode) : Infinity);
 
 // ---------- flow ----------
-const SCREENS = ['menu', 'settingsScr', 'soundScr', 'skinScr', 'duelScr', 'pauseScr', 'result'];
+const SCREENS = ['menu', 'settingsScr', 'soundScr', 'skinScr', 'duelScr', 'accountScr', 'rankScr', 'pauseScr', 'result'];
 function show(id) {
   SCREENS.forEach(s => { $(s).hidden = s !== id; });
   // Coming back to the menu always finds MARATONA, DUELOS and IA folded up
@@ -162,37 +86,40 @@ function show(id) {
 }
 const on = (id, fn) => $(id).addEventListener('click', fn);
 
-function clearBoard() {
-  board = newBoard(); queue = []; hold = null; canHold = true; cur = null;
-  lines = 0; pieces = 0; elapsed = 0; combo = 0;
-  foe = null; incoming = 0; solidRows = 0;
-  $('foeBox').hidden = true;
-  drawSide();
-}
-
-// `seed` is given in a duel, so both phones deal the same pieces
-function startGame(m, seed) {
+// `seed` is given in a duel, so both phones deal the same pieces. Signed in, a ranked mode asks
+// the server for its pieces first; without a connection the game is played unranked.
+async function startGame(m, seed) {
   mode = m;
-  rand = seed ? seeded(seed) : Math.random;
-  clearBoard();
+  run = null;
+  if (!seed && RANKED.includes(m) && account.signedIn()) {
+    state = 'starting';
+    run = await account.startRun(m);
+    if (state !== 'starting') return; // left in the meantime
+    if (run) seed = run.seed;
+  }
+  const rand = seed ? seeded(seed) : Math.random;
+  game = new Game(m, rand, {
+    sfx: audio.sfx,
+    end: finish,
+    sent: n => foe.receive(n),
+    locked: () => { if (duel) duel.send({ t: 'board', b: packBoard(game.board) }); },
+  }, !!run);
+  foe = null;
   if (mode === 'duel') {
     foe = { board: newBoard(), dead: false, receive: n => duel && duel.send({ t: 'atk', n }) };
-  } else if (isBattle()) {
-    foe = new Bot(mode.slice(3), n => { incoming += n; });
+  } else if (isBattle(mode)) {
+    foe = new Bot(mode.slice(3), n => { game.incoming += n; });
   }
-  if (foe) {
-    $('foeLabel').textContent = mode === 'duel' ? 'AMIGO' : 'IA';
-    $('foeBox').hidden = false;
-  }
+  $('foeBox').hidden = !foe;
+  if (foe) $('foeLabel').textContent = mode === 'duel' ? 'AMIGO' : 'IA';
+  stepAcc = 0;
   state = 'play';
   show(null);
-  spawn(pull());
-  drawSide();
   stats();
   audio.musicPlay(true);
 }
 
-function releaseAll() { Object.keys(held).forEach(k => delete held[k]); }
+function releaseAll() { if (game) Object.keys(game.held).forEach(k => game.release(k)); }
 
 function pause() {
   if (state !== 'play') return;
@@ -209,26 +136,50 @@ function resume() {
 
 function finish(win) {
   state = 'done';
-  cur = null;
-  releaseAll();
   audio.musicStop();
   audio.sfx(win ? 'win' : 'over');
-  if (isBattle()) {
+  const level = game.level, elapsed = game.elapsed;
+  if (isBattle(mode)) {
     if (!win && duel) duel.send({ t: 'over' });
-    if (win) { records[mode] = (records[mode] || 0) + 1; save('7etris-records', records); }
+    if (win) { records[mode] = (records[mode] || 0) + 1; saveRecords(); sync(); }
     result(win ? 'VITÓRIA!' : 'DERROTA', LEVEL_NAMES[mode], winsText(mode, mode === 'duel' ? 'contra amigos' : 'neste nível'));
-  } else if (win) {
-    const best = records[mode], isRecord = !best || elapsed < best;
-    if (isRecord) { records[mode] = elapsed; save('7etris-records', records); }
-    result(`${mode} LINHAS`, fmt(elapsed, 2), isRecord ? 'NOVO RECORDE!' : `Recorde: ${fmt(best, 2)}`);
-  } else if (mode === 'survival') {
-    const best = records.survival || 0, isRecord = level() > best;
-    if (isRecord) { records.survival = level(); save('7etris-records', records); }
-    result('FIM DE JOGO', `NÍVEL ${level()}`, isRecord ? 'NOVO RECORDE!' : `Recorde: nível ${best}`);
+  } else if (mode === 'survival' || win) {
+    const main = win ? fmt(elapsed, 2) : `NÍVEL ${level}`;
+    result(win ? `${mode} LINHAS` : 'FIM DE JOGO', main, '');
+    if (run) checkRun(run, game.replay);
+    else if (account.signedIn()) $('resSub').textContent = 'Sem internet: não valeu para o ranking';
+    else localRecord(win, elapsed, level);
   } else {
-    const marathon = isMarathon();
-    result('FIM DE JOGO', marathon ? `Faltaram ${goal() - lines}` : `${lines} linhas`, fmt(elapsed, marathon ? 2 : 0));
+    const marathon = isMarathon(mode);
+    result('FIM DE JOGO', marathon ? `Faltaram ${goal() - game.lines}` : `${game.lines} linhas`, fmt(elapsed, marathon ? 2 : 0));
   }
+}
+// A visitor's records stay on this phone
+function localRecord(win, elapsed, level) {
+  if (win) {
+    const best = records[mode], isRecord = !best || elapsed < best;
+    if (isRecord) { records[mode] = elapsed; saveRecords(); }
+    $('resSub').textContent = isRecord ? 'NOVO RECORDE!' : `Recorde: ${fmt(best, 2)}`;
+  } else {
+    const best = records.survival || 0, isRecord = level > best;
+    if (isRecord) { records.survival = level; saveRecords(); }
+    $('resSub').textContent = isRecord ? 'NOVO RECORDE!' : `Recorde: nível ${best}`;
+  }
+}
+// Signed in, the server replays the game and answers with the checked score and the ranking place
+const scoreText = (m, score) => (m === 'survival' ? `nível ${1 + Math.floor(score / 10)}` : fmt(score, 2));
+async function checkRun(r, replay) {
+  const m = mode, sub = $('resSub');
+  sub.textContent = 'Conferindo…';
+  const res = await account.finishRun(r.id, replay);
+  if (res.best !== undefined) {
+    records[m] = m === 'survival' ? 1 + Math.floor(res.best / 10) : res.best;
+    saveRecords();
+  }
+  if (game && game.mode !== m) return; // already playing something else
+  if (res.offline) sub.textContent = 'Sem internet: vai para o ranking quando a conexão voltar';
+  else if (res.error) sub.textContent = res.error;
+  else sub.textContent = `${res.record ? 'NOVO RECORDE!' : `Recorde: ${scoreText(m, res.best)}`} · ${res.rank}º no ranking`;
 }
 // Short enough to fit the result screen's big type on one line
 const LEVEL_NAMES = { 'ai-easy': 'IA FÁCIL', 'ai-medium': 'IA MÉDIO', 'ai-hard': 'IA DIFÍCIL', duel: 'ONLINE' };
@@ -241,16 +192,12 @@ function result(title, main, sub) {
   $('resTitle').textContent = title;
   $('resMain').textContent = main;
   $('resSub').textContent = sub;
-  const pps = elapsed > 0 ? pieces / (elapsed / 1000) : 0;
-  $('resStats').textContent = `${pieces} peças · ${pps.toFixed(2)} por segundo`;
+  const pps = game.elapsed > 0 ? game.pieces / (game.elapsed / 1000) : 0;
+  $('resStats').textContent = `${game.pieces} peças · ${pps.toFixed(2)} por segundo`;
   show('result');
 }
 
-function openMenu() {
-  state = 'menu';
-  audio.musicStop();
-  leaveDuel();
-  clearBoard();
+function renderRecords() {
   document.querySelectorAll('[data-rec]').forEach(el => {
     const best = records[el.dataset.rec];
     el.textContent = best ? fmt(best, 2) : '—';
@@ -259,6 +206,15 @@ function openMenu() {
     el.textContent = records[el.dataset.wins] ? winsText(el.dataset.wins) : '—';
   });
   $('survivalRec').textContent = records.survival ? `nível ${records.survival}` : '—';
+  $('openAccount').textContent = account.signedIn() ? account.session.name : 'VISITANTE';
+}
+function openMenu() {
+  state = 'menu';
+  audio.musicStop();
+  leaveDuel();
+  game = null; foe = null; run = null;
+  $('foeBox').hidden = true;
+  renderRecords();
   show('menu');
 }
 
@@ -288,6 +244,99 @@ on('again', again);
 on('resMenu', openMenu);
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
+// ---------- account ----------
+// First opening: the account screen, where the player signs up, signs in or plays as a visitor
+function openAccount(firstTime = false) {
+  const signed = account.signedIn();
+  $('accGuest').hidden = signed;
+  $('accUser').hidden = !signed;
+  if (signed) { $('accUserName').textContent = account.session.name; $('accUserCode').textContent = account.session.code; }
+  $('accName').value = ''; $('accCode').value = ''; $('accMsg').textContent = '';
+  $('accBack').textContent = firstTime ? 'JOGAR COMO VISITANTE' : 'VOLTAR';
+  show('accountScr');
+}
+// Brings in a signed-in account's settings (a reload applies them everywhere at once)
+function useAccount(me) {
+  useAccountRecords(me);
+  const d = me.data || {};
+  if (d.sound) save('7etris-audio', d.sound);
+  if (d.look) save('7etris-look', d.look);
+  if (d.pad) save('7etris-pad-2', d.pad); else try { localStorage.removeItem('7etris-pad-2'); } catch (_) {}
+  location.reload();
+}
+async function busy(btn, task) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try { await task(); } finally { btn.disabled = false; }
+}
+on('openAccount', () => openAccount());
+on('accCreate', () => busy($('accCreate'), async () => {
+  $('accMsg').textContent = 'Criando…';
+  // A visitor keeps their settings and battle wins; their records weren't checked, so they stay out
+  const res = await account.signUp($('accName').value, accountData());
+  if (res.error) { $('accMsg').textContent = res.error; return; }
+  useAccountRecords(res);
+  renderRecords();
+  openAccount();
+  $('accMsg').textContent = 'Conta criada! Anote o código.';
+}));
+on('accEnter', () => busy($('accEnter'), async () => {
+  $('accMsg').textContent = 'Entrando…';
+  const res = await account.signIn($('accCode').value);
+  if (res.error) { $('accMsg').textContent = res.error; return; }
+  useAccount(res);
+}));
+on('accCopy', async () => {
+  try { await navigator.clipboard.writeText(account.session.code); $('accMsg').textContent = 'Código copiado.'; } catch (_) {}
+});
+on('accOut', () => {
+  if (!confirm('Sair da conta? Você volta a jogar como visitante. Para entrar de novo, use o seu código.')) return;
+  account.signOut();
+  records = {};
+  saveRecords();
+  openMenu();
+});
+on('accBack', () => {
+  if (!account.session) account.playAsGuest();
+  openMenu();
+});
+
+// ---------- ranking ----------
+let rankMode = '40';
+async function showRanking(m) {
+  rankMode = m;
+  document.querySelectorAll('[data-rank]').forEach(b => b.classList.toggle('on', b.dataset.rank === m));
+  $('rankList').replaceChildren();
+  $('rankMsg').textContent = 'Carregando…';
+  const res = await account.ranking(m);
+  if (rankMode !== m) return;
+  if (res.error) { $('rankMsg').textContent = res.error; return; }
+  const row = (pos, name, score, me) => {
+    const li = document.createElement('li');
+    if (me) li.className = 'me';
+    for (const [cls, text] of [['pos', `${pos}º`], ['who', name], ['score', scoreText(m, score)]]) {
+      const span = document.createElement('span');
+      span.className = cls; span.textContent = text;
+      li.append(span);
+    }
+    return li;
+  };
+  const mine = res.me && res.me.name;
+  const items = res.top.map((r, i) => row(i + 1, r.name, r.score, r.name === mine));
+  // The player's own place, when it's below the list
+  if (res.me && res.me.rank > res.top.length) {
+    const gap = document.createElement('li');
+    gap.className = 'gap'; gap.textContent = '…';
+    items.push(gap, row(res.me.rank, res.me.name, res.me.score, true));
+  }
+  $('rankList').replaceChildren(...items);
+  $('rankMsg').textContent = res.top.length ? '' : 'Ninguém no ranking ainda. Seja o primeiro!';
+  if (!account.signedIn()) $('rankMsg').textContent += (res.top.length ? '' : ' ') + 'Crie uma conta para entrar no ranking.';
+}
+on('openRanking', () => { show('rankScr'); showRanking(rankMode); });
+document.querySelectorAll('[data-rank]').forEach(b => b.addEventListener('click', () => showRanking(b.dataset.rank)));
+on('rankBack', openMenu);
+
 // ---------- online duel ----------
 // The duel screen shows either the create/join choices or, once in a room, its code
 function duelStatus(text, room = '') {
@@ -306,13 +355,13 @@ function openDuel(how, code) {
     // The host deals the first round as soon as the friend arrives
     ready: isHost => { if (isHost) duelRound(); else duelStatus('Conectado! Esperando o jogo começar…', code); },
     start: seed => startGame('duel', seed),
-    attack: n => { if (mode === 'duel') incoming += n; },
+    attack: n => { if (mode === 'duel' && game) game.incoming += n; },
     board: b => { if (foe && mode === 'duel') foe.board = unpackBoard(b); },
-    over: () => { if (state === 'play' || state === 'pause') finish(true); },
+    over: () => { if (state === 'play' || state === 'pause') game.end(true); },
     closed: () => {
       duel = null;
       if (mode === 'duel' && (state === 'play' || state === 'pause' || state === 'done')) {
-        state = 'done'; cur = null; audio.musicStop();
+        state = 'done'; game.over = true; game.cur = null; audio.musicStop();
         result('CONEXÃO PERDIDA', 'O duelo acabou', 'Seu amigo saiu ou ficou sem internet.');
         $('again').hidden = true;
       } else duelStatus('A conexão caiu. Tente de novo.');
@@ -344,6 +393,7 @@ function setSound(patch) {
   Object.assign(sound, patch);
   syncAudio();
   save('7etris-audio', sound);
+  sync();
   renderSound();
 }
 // The music plays while this screen is open, so volume changes can be heard
@@ -375,31 +425,11 @@ for (const pack of audio.SOUND_PACKS) {
 on('openSettings', () => show('settingsScr'));
 on('settingsBack', () => show('menu'));
 
-// Backup: every saved key packed into one code to paste back later, because iOS wipes a
-// home-screen app's storage when its shortcut is removed
-const SAVED = ['7etris-records', '7etris-audio', '7etris-look', '7etris-pad-2'];
-on('dataCopy', async () => {
-  const data = {};
-  for (const key of SAVED) { try { const v = localStorage.getItem(key); if (v) data[key] = JSON.parse(v); } catch (_) {} }
-  const code = '7ETRIS-' + btoa(JSON.stringify(data));
-  try { await navigator.clipboard.writeText(code); } catch (_) { prompt('Copie este código:', code); return; }
-  $('dataCopy').textContent = 'COPIADO!';
-  setTimeout(() => { $('dataCopy').textContent = 'COPIAR'; }, 1500);
-});
-on('dataRestore', () => {
-  const code = prompt('Cole o código copiado:');
-  if (!code) return;
-  let data = null;
-  try { data = JSON.parse(atob(code.trim().replace(/^7ETRIS-/, ''))); } catch (_) {}
-  if (!data || typeof data !== 'object' || !SAVED.some(key => key in data)) { alert('Código inválido.'); return; }
-  for (const key of SAVED) if (key in data) save(key, data[key]);
-  location.reload();
-});
-
 // ---------- look: skins and light/dark ----------
 function setLook(patch) {
   Object.assign(look, patch);
   save('7etris-look', look);
+  sync();
   applyLook();
   resize(); // the Game Boy skin frames the playfield, which changes the board's size
 }
@@ -434,33 +464,14 @@ on('openSkins', () => show('skinScr'));
 on('skinBack', () => show('settingsScr'));
 
 // ---------- controls ----------
-const held = {};
-// Only the auto-repeating directions track "held"; A, B and hard drop act on every press,
-// so a release iOS never reports can't leave them stuck and swallow the next tap.
-const REPEATS = ['left', 'right', 'down'];
-function press(k) {
-  if (state !== 'play') return;
-  if (REPEATS.includes(k)) held[k] = { next: performance.now() + DAS };
-  switch (k) {
-    case 'left': case 'right': if (tryMove(k === 'left' ? -1 : 1, 0)) audio.sfx('move'); break;
-    case 'down': tryMove(0, 1); dropAcc = 0; break;
-    case 'up': hardDrop(); break;
-    case 'a': if (rotate()) audio.sfx('rotate'); break;
-    case 'b': holdPiece(); break;
-  }
-}
-function release(k) { delete held[k]; }
-
-// v15 changed the default controls back to the Game Boy layout; drop layouts saved for the old shapes
-try { localStorage.removeItem('7etris-pad'); } catch (_) {}
-// No saved layout means the default one, fitted to this screen
-let savedPad = null;
-try { savedPad = JSON.parse(localStorage.getItem('7etris-pad-2')); } catch (_) {}
+// A, B and hard drop act on every press, so a release iOS never reports can't leave them stuck
+function press(k) { if (state === 'play') game.press(k); }
+function release(k) { if (state === 'play') game.release(k); }
 initPad({ press, release }, savedPad);
 on('openPad', () => {
   state = 'edit';
   show(null);
-  editPad(layout => { save('7etris-pad-2', layout); state = 'menu'; show('settingsScr'); });
+  editPad(layout => { savedPad = layout; save('7etris-pad-2', layout); sync(); state = 'menu'; show('settingsScr'); });
 });
 
 const KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'up', ' ': 'up', x: 'a', X: 'a', c: 'b', C: 'b', Shift: 'b' };
@@ -525,12 +536,14 @@ function drawBoard() {
   ctx.fillStyle = GRID;
   for (let x = 1; x < COLS; x++) ctx.fillRect(x * c, 0, 1, c * VIS);
   for (let y = 1; y < VIS; y++) ctx.fillRect(0, y * c, c * COLS, 1);
+  if (!game) return;
   for (let y = HID; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    const t = board[y][x];
+    const t = game.board[y][x];
     if (t) block(ctx, x * c, (y - HID) * c, c, t, state === 'done' ? 'dead' : 'solid');
   }
+  const cur = game.cur;
   if (!cur) return;
-  const gy = ghostY();
+  const gy = game.ghostY();
   cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && gy + y >= HID) block(ctx, (cur.x + x) * c, (gy + y - HID) * c, c, cur.t, 'ghost'); }));
   cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && cur.y + y >= HID) block(ctx, (cur.x + x) * c, (cur.y + y - HID) * c, c, cur.t, 'solid'); }));
 }
@@ -543,13 +556,14 @@ function mini(ctx, t, cx, cy, s, kind) {
   rows.forEach((y, ry) => cols.forEach((x, rx) => { if (m[y][x]) block(ctx, ox + rx * s, oy + ry * s, s, t, kind); }));
 }
 function drawSide() {
-  if (!hctx || !board) return;
+  if (!hctx) return;
   const w = parseFloat($('hold').style.width), h = parseFloat($('hold').style.height), s = Math.max(4, Math.floor(cell * 0.42));
   hctx.fillStyle = PANEL; hctx.fillRect(0, 0, w, h);
-  if (hold) mini(hctx, hold, w / 2, h / 2, s, canHold ? 'solid' : 'dead');
   const nh = parseFloat($('next').style.height);
   nctx.fillStyle = PANEL; nctx.fillRect(0, 0, w, nh);
-  queue.slice(0, PREVIEW).forEach((t, i) => mini(nctx, t, w / 2, h * i + h / 2, s, 'solid'));
+  if (!game) return;
+  if (game.hold) mini(hctx, game.hold, w / 2, h / 2, s, game.canHold ? 'solid' : 'dead');
+  game.queue.slice(0, PREVIEW).forEach((t, i) => mini(nctx, t, w / 2, h * i + h / 2, s, 'solid'));
 }
 
 // Battle extras: the opponent's board in miniature, and the red bar beside the board showing
@@ -561,7 +575,7 @@ function drawBattle() {
     const t = foe.board[y][x];
     if (t) block(fctx, x * s, (y - HID) * s, s, t, foe.dead ? 'dead' : 'solid');
   }
-  $('meter').style.height = `${(Math.min(incoming, VIS) / VIS) * 100}%`;
+  $('meter').style.height = `${(Math.min(game.incoming, VIS) / VIS) * 100}%`;
 }
 
 // m:ss with `dp` decimals of a second
@@ -573,44 +587,34 @@ function fmt(ms, dp) {
 function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
 const statEls = { label: $('linesLbl'), lines: $('lines'), midLabel: $('piecesLbl'), pieces: $('pieces'), time: $('time') };
 function stats() {
-  const inGame = state === 'play' || state === 'pause' || state === 'done';
-  const marathon = isMarathon() && inGame, survival = mode === 'survival' && inGame;
+  const marathon = isMarathon(mode) && game, survival = mode === 'survival' && game;
+  const lines = game ? game.lines : 0;
   setText(statEls.label, marathon ? 'FALTAM' : 'LINHAS');
   setText(statEls.lines, String(marathon ? Math.max(0, goal() - lines) : lines));
   setText(statEls.midLabel, survival ? 'NÍVEL' : 'PEÇAS');
-  setText(statEls.pieces, String(survival ? level() : pieces));
-  setText(statEls.time, fmt(elapsed, marathon ? 1 : 0));
+  setText(statEls.pieces, String(survival ? game.level : game ? game.pieces : 0));
+  setText(statEls.time, fmt(game ? game.elapsed : 0, marathon ? 1 : 0));
 }
 
 // ---------- loop ----------
-let last = performance.now();
-// The clock adds real time so records stay honest; gameplay steps are capped so a slow frame
-// can't drop a piece several rows at once.
-function frame(now) {
-  const real = now - last, dt = Math.min(50, real); last = now;
-  if (state === 'play' && cur) {
-    elapsed += real;
-    for (const k of ['left', 'right']) {
-      const h = held[k];
-      if (h && now >= h.next) { if (tryMove(k === 'left' ? -1 : 1, 0)) audio.sfx('move'); h.next = now + ARR; }
-    }
-    const iv = held.down ? Math.min(gravity(), SOFT) : gravity();
-    if (collides(cur.m, cur.x, cur.y + 1)) {
-      dropAcc = 0; lockT += dt;
-      if (lockT >= LOCK) lock();
-    } else {
-      lockT = 0; dropAcc += dt;
-      while (cur && dropAcc >= iv) { dropAcc -= iv; if (!tryMove(0, 1)) { dropAcc = 0; break; } }
-    }
+// The game moves in whole-ms steps of at least 16 ms (60 a second, even on 120 Hz screens):
+// that's what a ranked game records, and fewer, steadier steps keep the server's replay quick
+let last = Math.floor(performance.now()), stepAcc = 0;
+function frame(t) {
+  const now = Math.floor(t), real = now - last;
+  last = now;
+  if (state === 'play' && !game.over) {
+    stepAcc += real;
+    if (stepAcc >= 16) { game.step(stepAcc); stepAcc = 0; }
     if (foe && state === 'play') {
       if (foe.update) foe.update(real); // the AI thinks; a friend's moves arrive as messages
-      if (foe.dead) finish(true);
+      if (foe.dead) game.end(true);
     }
-    if (foe && state === 'play' && cur) raiseSolids();
   }
   stats();
   if (bctx) drawBoard();
-  if (foe) drawBattle();
+  if (state === 'play' || state === 'pause' || state === 'done') drawSide();
+  if (foe && game) drawBattle();
   requestAnimationFrame(frame);
 }
 
@@ -618,6 +622,15 @@ $('ver').textContent = 'v' + VERSION;
 applyLook();
 resize();
 openMenu();
-requestAnimationFrame(t => { last = t; frame(t); });
+if (!account.session) openAccount(true);
+// Signed in: send games that couldn't be checked before, then bring the records up to date
+if (account.signedIn()) {
+  account.sendPending().then(() => account.fetchMe()).then(me => {
+    if (!me) return;
+    useAccountRecords(me);
+    if (state === 'menu') renderRecords();
+  });
+}
+requestAnimationFrame(t => { last = Math.floor(t); frame(t); });
 addEventListener('resize', resize);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize).catch(() => {});

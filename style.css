@@ -262,6 +262,34 @@ canvas { display: block; }
 .result-text { display: flex; flex-direction: column; gap: 10px; }
 .ver { font: 500 11px/1 var(--font-num); color: var(--muted); text-align: center; }
 
+/* Account button in the menu's top-left corner: the player's name, or VISITANTE */
+.profile {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 16px;
+  height: 42px; max-width: calc(100% - 90px); padding: 0 16px; border-radius: 999px; cursor: pointer;
+  background: var(--key); border: 1px solid var(--key-hi); color: var(--fg);
+  font-size: 14px; font-weight: 700; letter-spacing: .06em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.profile:active { background: var(--key-hi); }
+#accUserCode { letter-spacing: .12em; user-select: text; -webkit-user-select: text; }
+#accUser .note { text-align: center; }
+#accName { letter-spacing: .08em; }
+:is(#accMsg, #rankMsg):empty { display: none; }
+.key.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Ranking: place, name, score; the player's own row stands out */
+.rank { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.rank li {
+  display: grid; grid-template-columns: 2.6em 1fr auto; align-items: center; gap: 8px;
+  padding: 11px 14px; border-radius: 10px; background: var(--key); border: 1px solid var(--key-hi);
+  font-size: 16px; font-weight: 700; letter-spacing: .04em;
+}
+.rank li.me { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.rank .pos { color: var(--muted); font: 500 14px/1 var(--font-num); }
+.rank .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank .score { font: 500 15px/1 var(--font-num); color: var(--muted); }
+.rank .gap { padding: 0; border: 0; background: none; justify-content: center; color: var(--muted); display: flex; }
+
 /* Toolbar while moving the controls */
 .editbar {
   position: fixed; z-index: 10; left: 50%; transform: translateX(-50%);
@@ -394,22 +422,24 @@ canvas { display: block; }
 [data-skin="obra"] .screen h1 { --title-depth: var(--grid); }
 [data-skin="obra"] .screen h2 { font-size: 38px; }
 [data-skin="obra"] :is(.row, .key, .setting-head) { font-size: 23px; }
+[data-skin="obra"] .profile { font-size: 19px; }
 [data-skin="obra"] :is(.glabel, .btn small) { font-size: 14px; }
 [data-skin="obra"] :is(.sub, .note, .editbar p, .row .rec) { font-size: 19px; }
 [data-skin="obra"] .big { font-size: 56px; }
 [data-skin="obra"] .ver { font-size: 15px; }
 
 /* Shared by both retro skins: square corners, ruled borders, pressed = inverted */
-:is([data-skin="gameboy"], [data-skin="obra"]) :is(.row, .setting, .key, .gear, .theme, .theme button, .toggle, .code-input, .pause-btn, .editbar, .arm) { border-radius: 0; }
+:is([data-skin="gameboy"], [data-skin="obra"]) :is(.row, .setting, .key, .gear, .profile, .rank li, .theme, .theme button, .toggle, .code-input, .pause-btn, .editbar, .arm) { border-radius: 0; }
 :is([data-skin="gameboy"], [data-skin="obra"]) .toggle::after { border-radius: 0; }
-:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row, .setting, .key, .gear, .code-input, .theme) {
+:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row, .setting, .key, .gear, .profile, .rank li, .code-input, .theme) {
   border: 2px solid var(--fg); background: var(--key); color: var(--fg);
 }
-:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row:not(.static), .key, .gear):active,
-:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row.primary, .key.primary) {
+:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row:not(.static), .key, .gear, .profile):active,
+:is([data-skin="gameboy"] .screen, [data-skin="gameboy"] .editbar, [data-skin="obra"]) :is(.row.primary, .key.primary, .key.on) {
   background: var(--fg); color: var(--key); border-color: var(--fg); filter: none; transform: none;
 }
-:is([data-skin="gameboy"], [data-skin="obra"]) .row.skin.on { box-shadow: none; outline: 2px solid var(--fg); outline-offset: 2px; }
+:is([data-skin="gameboy"], [data-skin="obra"]) .rank li.gap { border: 0; background: none; }
+:is([data-skin="gameboy"], [data-skin="obra"]) :is(.row.skin.on, .rank li.me) { box-shadow: none; outline: 2px solid var(--fg); outline-offset: 2px; }
 :is([data-skin="gameboy"], [data-skin="obra"]) .toggle { border: 2px solid var(--fg); background: var(--key); }
 :is([data-skin="gameboy"], [data-skin="obra"]) .toggle::after { top: 3px; left: 3px; width: 20px; height: 20px; background: var(--muted); }
 :is([data-skin="gameboy"], [data-skin="obra"]) .toggle[aria-pressed="true"] { background: var(--fg); }
