@@ -53,8 +53,10 @@ export async function signIn(code) {
   forget();
   return res.body;
 }
+// The account, null without a connection, or { gone: true } when the server no longer has it
 export async function fetchMe() {
   const res = await call('GET', '/me');
+  if (res.status === 401) return { gone: true };
   return res.ok ? res.body : null;
 }
 
@@ -67,10 +69,12 @@ export function saveData(data) {
 }
 
 // Sends a finished ranked game ({ mode, seed, replay }) for the server to play again and check:
-// { score, best, record, rank }, { error }, or { offline: true } when it's kept to send later
+// { score, best, record, rank }, { error }, { offline: true } when it's kept to send later, or
+// { gone: true } when the server no longer has the account
 export async function sendGame(game) {
   const res = await call('POST', '/games', game, 15000);
   if (res.ok) return res.body;
+  if (res.status === 401) return { gone: true };
   if (res.status === 0 || res.status >= 500) {
     write(PENDING, [...read(PENDING, []), { ...game, tries: 1 }]);
     return { offline: true };

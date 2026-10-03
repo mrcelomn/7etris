@@ -10,7 +10,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 48;
+const VERSION = 49;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
@@ -175,8 +175,10 @@ async function checkGame(seed, replay, value) {
     records[m] = value; // the menu shows it right away; the server confirms it later
     saveRecords();
   }
+  if (res.gone) accountGone();
   if (game && game.mode !== m) return; // already playing something else
-  if (res.offline) sub.textContent = 'Sem internet: a partida fica salva e vai para o ranking quando a conexão voltar';
+  if (res.gone) sub.textContent = GONE;
+  else if (res.offline) sub.textContent = 'Sem internet: a partida fica salva e vai para o ranking quando a conexão voltar';
   else if (res.error) sub.textContent = res.error;
   else sub.textContent = `${res.record ? 'NOVO RECORDE!' : `Recorde: ${scoreText(m, res.best)}`} · ${res.rank}º no ranking`;
 }
@@ -267,6 +269,14 @@ async function busy(btn, task) {
   if (btn.disabled) return;
   btn.disabled = true;
   try { await task(); } finally { btn.disabled = false; }
+}
+// The server no longer has this account: back to playing as a visitor, to sign up again
+const GONE = 'Sua conta não existe mais no servidor. Crie uma nova em CONTA, no canto de cima do menu.';
+function accountGone() {
+  account.signOut();
+  records = {};
+  saveRecords();
+  renderRecords();
 }
 on('openAccount', () => openAccount());
 on('accCreate', () => busy($('accCreate'), async () => {
@@ -628,6 +638,11 @@ async function catchUp() {
   await account.sendPending();
   const me = await account.fetchMe();
   if (!me) return;
+  if (me.gone) {
+    accountGone();
+    if (state === 'menu') { openAccount(); $('accMsg').textContent = 'Sua conta não existe mais no servidor. Crie uma nova.'; }
+    return;
+  }
   useAccountRecords(me);
   if (state === 'menu') renderRecords();
 }
