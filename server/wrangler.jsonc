@@ -3,7 +3,12 @@
   "name": "7etris",
   "main": "worker.js",
   "compatibility_date": "2026-10-01",
+  "rules": [{ "type": "Text", "globs": ["**/*.html"] }],
+  // The account whose code opens the developer's page (/dev)
+  "vars": { "ADMIN_ID": "1" },
   "d1_databases": [
     { "binding": "DB", "database_name": "7etris", "database_id": "a4df9855-6d14-4b9a-a6f6-3981798a9dbf" }
-  ]
+  ],
+  "durable_objects": { "bindings": [{ "name": "LIVE", "class_name": "Live" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Live"] }]
 }

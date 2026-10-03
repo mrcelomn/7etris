@@ -1,5 +1,6 @@
 import * as audio from './audio.js';
 import * as account from './account.js';
+import * as live from './live.js';
 import { initPad, placePad, editPad } from './pad.js';
 import { SKINS, drawBlock, setInk } from './skins.js';
 import { COLS, ROWS, HID, VIS, SHAPES, newBoard, seeded, packBoard, unpackBoard } from './rules.js';
@@ -10,7 +11,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 51;
+const VERSION = 52;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
@@ -71,6 +72,7 @@ let ranked = null; // the seed of this game's pieces, when it counts for the ran
 // Battles only: the opponent ({ board, dead, receive(n) }: the AI or the friend's mirror)
 let foe = null;
 let duel = null; // the open connection to a friend, while in a duel
+let duelRoom = ''; // its room code
 
 const goal = () => (isMarathon(mode) ? Number(mode) : Infinity);
 
@@ -108,6 +110,7 @@ function startGame(m, seed) {
   $('foeBox').hidden = !foe;
   if (foe) $('foeLabel').textContent = mode === 'duel' ? 'AMIGO' : 'IA';
   stepAcc = 0;
+  live.start();
   state = 'play';
   show(null);
   stats();
@@ -213,6 +216,7 @@ function openMenu() {
   state = 'menu';
   audio.musicStop();
   leaveDuel();
+  live.stop();
   game = null; foe = null; ranked = null;
   $('foeBox').hidden = true;
   renderRecords();
@@ -376,6 +380,7 @@ function leaveDuel() {
 }
 function openDuel(how, code) {
   leaveDuel();
+  duelRoom = code;
   duel = new Duel({
     // The host deals the first round as soon as the friend arrives
     ready: isHost => { if (isHost) duelRound(); else duelStatus('Conectado! Esperando o jogo começar…', code); },
@@ -621,6 +626,18 @@ function stats() {
   setText(statEls.time, fmt(game ? game.elapsed : 0, marathon ? 1 : 0));
 }
 
+// What the developer's live page shows of this game: the board with the falling piece in it
+function liveState() {
+  const b = game.board.map(r => r.slice()), c = game.cur;
+  if (c) c.m.forEach((r, y) => r.forEach((v, x) => { if (v && c.y + y >= 0) b[c.y + y][c.x + x] = c.t; }));
+  return {
+    name: account.signedIn() ? account.session.name : 'Visitante', mode, room: mode === 'duel' ? duelRoom : '',
+    b: packBoard(b), hold: game.hold || '', next: game.queue.slice(0, PREVIEW).join(''),
+    lines: game.lines, pieces: game.pieces, level: game.level, incoming: game.incoming, time: Math.floor(game.elapsed),
+    paused: state === 'pause', over: game.over, won: game.won,
+  };
+}
+
 // ---------- loop ----------
 // The game moves in whole-ms steps of at least 16 ms (60 a second, even on 120 Hz screens):
 // that's what a ranked game records, and fewer, steadier steps keep the server's replay quick
@@ -640,6 +657,7 @@ function frame(t) {
   if (bctx) drawBoard();
   if (state === 'play' || state === 'pause' || state === 'done') drawSide();
   if (foe && game) drawBattle();
+  if (game) live.update(liveState, now);
   requestAnimationFrame(frame);
 }
 

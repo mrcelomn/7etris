@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>7etris ao vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;700&family=JetBrains+Mono:wght@500;700&family=VT323&display=swap">
+<style>
+:root {
+  --bg: #0d0f13; --panel: #171a21; --grid: #20242d; --line: #2a2f3a; --fg: #e8e9ed; --muted: #8a909c;
+  --accent: #a3245a; --ok: #59b101; --warn: #e39f02;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg);
+  font: 500 15px/1.3 "Barlow Semi Condensed", system-ui, sans-serif; letter-spacing: .02em;
+  padding: 20px 16px 40px;
+}
+header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto 20px; }
+h1 { margin: 0; font: 400 52px/.9 "VT323", monospace; letter-spacing: .04em; }
+h1 span { color: var(--accent); }
+.status { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.live .dot { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 25%, transparent); }
+main { max-width: 1200px; margin: 0 auto; }
+.empty { color: var(--muted); text-align: center; padding: 60px 0; font-size: 17px; }
+.games { display: flex; flex-wrap: wrap; gap: 16px; }
+.duel { max-width: 100%; display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px dashed var(--line); border-radius: 16px; flex-wrap: wrap; }
+.vs { font: 400 30px/1 "VT323", monospace; color: var(--accent); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; width: 290px; }
+.card.over { opacity: .6; }
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.name { font-size: 20px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mode { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--muted); white-space: nowrap; }
+.play { display: flex; gap: 10px; }
+.side { display: flex; flex-direction: column; gap: 8px; }
+.label { font-size: 10px; font-weight: 700; letter-spacing: .14em; color: var(--muted); }
+canvas { display: block; background: var(--grid); border-radius: 4px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.stat { background: var(--bg); border-radius: 8px; padding: 6px 8px; }
+.stat b { display: block; font: 700 15px/1.2 "JetBrains Mono", monospace; }
+.tag { font-size: 12px; font-weight: 700; letter-spacing: .08em; padding: 3px 8px; border-radius: 999px; background: var(--bg); color: var(--ok); }
+.tag.pause { color: var(--warn); }
+.tag.end { color: var(--muted); }
+form { max-width: 340px; margin: 80px auto; display: flex; flex-direction: column; gap: 12px; text-align: center; }
+input, button { font: inherit; border-radius: 10px; padding: 12px; border: 1px solid var(--line); }
+input { background: var(--panel); color: var(--fg); font: 700 22px/1 "JetBrains Mono", monospace; letter-spacing: .2em; text-align: center; text-transform: uppercase; }
+button { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; letter-spacing: .08em; cursor: pointer; }
+.err { color: var(--warn); min-height: 1.3em; }
+.out { background: none; border: 1px solid var(--line); color: var(--muted); padding: 6px 12px; font-size: 13px; margin-left: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>7</span>ETRIS</h1>
+  <div class="status" id="status"><span class="dot"></span><span id="statusText">Desconectado</span></div>
+  <button class="out" id="out" hidden>SAIR</button>
+</header>
+<main id="main"></main>
+
+<script>
+// The developer's live view of every game being played online. Opened with the admin account's
+// code (kept in this browser); the server relays each phone's board a few times a second.
+const SOCKET = 'wss://7etris.7etris-jogo.workers.dev/live';
+const COLORS = { I: '#0f9bd7', O: '#e39f02', T: '#af298a', S: '#59b101', Z: '#d70f37', J: '#2141c6', L: '#e35b02', G: '#7a7f89', X: '#474b53' };
+const SHAPES = { I: [[1,1,1,1]], O: [[1,1],[1,1]], T: [[0,1,0],[1,1,1]], S: [[0,1,1],[1,1,0]], Z: [[1,1,0],[0,1,1]], J: [[1,0,0],[1,1,1]], L: [[0,0,1],[1,1,1]] };
+const MODES = { 20: 'MARATONA 20', 40: 'MARATONA 40', 100: 'MARATONA 100', survival: 'SOBREVIVÊNCIA', practice: 'TREINO', 'ai-easy': 'IA FÁCIL', 'ai-medium': 'IA MÉDIO', 'ai-hard': 'IA DIFÍCIL', duel: 'DUELO ONLINE' };
+const COLS = 10, ROWS = 22, HID = 2, CELL = 17, MINI = 9;
+const KEY = '7etris-dev-code';
+const $ = id => document.getElementById(id);
+const games = new Map(); // id → latest game
+let ws = null, retry = 1000;
+
+const read = () => { try { return localStorage.getItem(KEY); } catch (_) { return null; } };
+const write = v => { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (_) {} };
+
+function status(text, live = false) {
+  $('statusText').textContent = text;
+  $('status').classList.toggle('live', live);
+}
+
+function askCode(error = '') {
+  $('out').hidden = true;
+  status('Desconectado');
+  $('main').innerHTML = `<form id="login">
+    <div>Código da conta do desenvolvedor</div>
+    <input id="code" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CÓDIGO">
+    <button>ENTRAR</button>
+    <div class="err"></div>
+  </form>`;
+  document.querySelector('.err').textContent = error;
+  $('login').addEventListener('submit', e => {
+    e.preventDefault();
+    const code = $('code').value.trim().toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/^(.{4})(.+)$/, '$1-$2');
+    if (code) { write(code); connect(); }
+  });
+}
+
+function connect() {
+  const code = read();
+  if (!code) return askCode();
+  $('out').hidden = false;
+  status('Conectando…');
+  $('main').innerHTML = '<div class="empty">Conectando…</div>';
+  let opened = false;
+  ws = new WebSocket(`${SOCKET}?code=${encodeURIComponent(code)}`);
+  ws.onopen = () => { opened = true; retry = 1000; status('Ao vivo', true); };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.t === 'all') { games.clear(); m.games.forEach(g => games.set(g.id, g)); }
+    else if (m.t === 'game') games.set(m.game.id, m.game);
+    else if (m.t === 'gone') games.delete(m.id);
+    render();
+  };
+  ws.onclose = () => {
+    ws = null;
+    // A refused code never opens; anything else is a dropped connection, so try again
+    if (!opened) { write(null); return askCode('Código inválido ou sem permissão.'); }
+    status('Reconectando…');
+    setTimeout(connect, retry);
+    retry = Math.min(retry * 2, 15000);
+  };
+}
+$('out').addEventListener('click', () => { write(null); if (ws) { ws.onclose = null; ws.close(); } games.clear(); askCode(); });
+
+function fmt(ms) {
+  const s = ms / 1000, m = Math.floor(s / 60);
+  return `${m}:${(s - m * 60).toFixed(1).padStart(4, '0')}`;
+}
+
+function drawBoard(cv, packed) {
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#171a21'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = '#20242d';
+  for (let x = 1; x < COLS; x++) ctx.fillRect(x * CELL, 0, 1, cv.height);
+  for (let y = 1; y < ROWS - HID; y++) ctx.fillRect(0, y * CELL, cv.width, 1);
+  for (let y = HID; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const t = packed[y * COLS + x];
+    if (t && t !== '.') block(ctx, x * CELL, (y - HID) * CELL, CELL, COLORS[t] || '#888');
+  }
+}
+function block(ctx, x, y, s, c) {
+  const e = Math.max(2, s * 0.14);
+  ctx.fillStyle = c; ctx.fillRect(x, y, s, s);
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x, y, s, e);
+  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(x, y + s - e, s, e);
+}
+function drawPieces(cv, pieces) {
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#171a21'; ctx.fillRect(0, 0, cv.width, cv.height);
+  [...pieces].forEach((t, i) => {
+    const m = SHAPES[t];
+    if (!m) return;
+    const ox = (cv.width - m[0].length * MINI) / 2, oy = i * MINI * 3 + (MINI * 3 - m.length * MINI) / 2;
+    m.forEach((r, y) => r.forEach((v, x) => { if (v) block(ctx, ox + x * MINI, oy + y * MINI, MINI, COLORS[t]); }));
+  });
+}
+
+function card(g) {
+  const el = document.createElement('div');
+  el.className = 'card' + (g.over ? ' over' : '');
+  const state = g.over ? (g.won ? 'VENCEU' : 'TERMINOU') : g.paused ? 'PAUSADO' : 'JOGANDO';
+  const cls = g.over ? 'end' : g.paused ? 'pause' : '';
+  const battle = g.mode === 'duel' || g.mode.startsWith('ai-');
+  const [label, value] = battle ? ['LIXO', g.incoming] : /^\d+$/.test(g.mode) ? ['FALTAM', Math.max(0, Number(g.mode) - g.lines)]
+    : g.mode === 'survival' ? ['NÍVEL', g.level] : ['PEÇAS', g.pieces];
+  el.innerHTML = `
+    <div class="top"><div class="name"></div><span class="tag ${cls}">${state}</span></div>
+    <div class="mode">${MODES[g.mode] || g.mode}${g.room ? ' · SALA ' + g.room : ''}</div>
+    <div class="play">
+      <canvas class="board" width="${COLS * CELL}" height="${(ROWS - HID) * CELL}"></canvas>
+      <div class="side">
+        <div class="label">HOLD</div><canvas class="hold" width="${MINI * 5}" height="${MINI * 3}"></canvas>
+        <div class="label">NEXT</div><canvas class="next" width="${MINI * 5}" height="${MINI * 15}"></canvas>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="label">TEMPO</span><b>${fmt(g.time)}</b></div>
+      <div class="stat"><span class="label">LINHAS</span><b>${g.lines}</b></div>
+      <div class="stat"><span class="label">${label}</span><b>${value}</b></div>
+    </div>`;
+  el.querySelector('.name').textContent = g.name; // typed by players: never as HTML
+  drawBoard(el.querySelector('.board'), g.b);
+  drawPieces(el.querySelector('.hold'), g.hold);
+  drawPieces(el.querySelector('.next'), g.next);
+  return el;
+}
+
+// Duel players in the same room sit side by side
+function render() {
+  if (!$('main') || $('login')) return;
+  const list = [...games.values()];
+  if (!list.length) { $('main').innerHTML = '<div class="empty">Ninguém jogando online agora.</div>'; return; }
+  const wrap = document.createElement('div');
+  wrap.className = 'games';
+  const rooms = new Map();
+  for (const g of list) {
+    if (g.mode === 'duel' && g.room) {
+      if (!rooms.has(g.room)) { const d = document.createElement('div'); d.className = 'duel'; rooms.set(g.room, d); wrap.append(d); }
+      const d = rooms.get(g.room);
+      if (d.children.length) { const vs = document.createElement('div'); vs.className = 'vs'; vs.textContent = 'VS'; d.append(vs); }
+      d.append(card(g));
+    } else wrap.append(card(g));
+  }
+  $('main').replaceChildren(wrap);
+}
+
+connect();
+</script>
+</body>
+</html>

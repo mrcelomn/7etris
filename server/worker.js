@@ -2,6 +2,10 @@
 // An account is a name and a secret code, nothing else; the code is all it takes to sign in,
 // so only its hash is stored. Ranked games are checked by replaying them: the phone sends the
 // seed its pieces came from and every step and press, and the server plays them again.
+// /dev is the developer's page (dev.html), open only with the ADMIN_ID account's code: it watches
+// every game being played online, live, through the Live object below.
+import DEV_PAGE from './dev.html';
+import { DurableObject } from 'cloudflare:workers';
 import { replay } from '../engine.js';
 import { seeded } from '../rules.js';
 
@@ -32,8 +36,9 @@ function newCode() {
 async function user(req, db) {
   const auth = req.headers.get('Authorization') || '';
   if (!auth.startsWith('Bearer ')) return null;
-  return db.prepare('SELECT id, name, data FROM users WHERE code_hash = ?').bind(await hash(auth.slice(7))).first();
+  return byCode(db, auth.slice(7));
 }
+const byCode = async (db, code) => db.prepare('SELECT id, name, data FROM users WHERE code_hash = ?').bind(await hash(code)).first();
 async function records(db, id) {
   const { results } = await db.prepare('SELECT mode, score FROM records WHERE user_id = ?').bind(id).all();
   return Object.fromEntries(results.map(r => [r.mode, r.score]));
@@ -99,10 +104,58 @@ const routes = {
 };
 const PUBLIC = ['POST /signup', 'GET /ranking/:mode'];
 
+// One room for all live games: phones in a game connect as players, the developer's page as the
+// viewer. Players send their board only while a viewer is connected, so nothing runs otherwise
+// (the sockets hibernate). Each player's latest board lives in its socket's attachment.
+export class Live extends DurableObject {
+  async fetch(req) {
+    const viewer = new URL(req.url).searchParams.has('code'); // checked by the worker
+    const [client, server] = Object.values(new WebSocketPair());
+    this.ctx.acceptWebSocket(server, [viewer ? 'viewer' : 'player']);
+    if (viewer) {
+      const games = this.ctx.getWebSockets('player').map(ws => ws.deserializeAttachment()).filter(Boolean);
+      server.send(JSON.stringify({ t: 'all', games }));
+      this.toPlayers({ t: 'watch', on: true });
+    } else if (this.ctx.getWebSockets('viewer').length) {
+      server.send(JSON.stringify({ t: 'watch', on: true }));
+    }
+    return new Response(null, { status: 101, webSocket: client });
+  }
+  toPlayers(msg) { for (const ws of this.ctx.getWebSockets('player')) try { ws.send(JSON.stringify(msg)); } catch (_) {} }
+  toViewers(msg) { for (const ws of this.ctx.getWebSockets('viewer')) try { ws.send(JSON.stringify(msg)); } catch (_) {} }
+  webSocketMessage(ws, msg) {
+    if (!this.ctx.getTags(ws).includes('player') || typeof msg !== 'string' || msg.length > 1500) return;
+    let game;
+    try { game = JSON.parse(msg); } catch (_) { return; }
+    game.id = (ws.deserializeAttachment() || {}).id || crypto.randomUUID();
+    ws.serializeAttachment(game);
+    this.toViewers({ t: 'game', game });
+  }
+  webSocketClose(ws) {
+    const tags = this.ctx.getTags(ws);
+    if (tags.includes('player')) {
+      const game = ws.deserializeAttachment();
+      if (game) this.toViewers({ t: 'gone', id: game.id });
+    } else if (!this.ctx.getWebSockets('viewer').some(v => v !== ws)) {
+      this.toPlayers({ t: 'watch', on: false });
+    }
+  }
+}
+
 export default {
   async fetch(req, env) {
     if (req.method === 'OPTIONS') return new Response(null, { headers: HEADERS });
-    const parts = new URL(req.url).pathname.split('/').filter(Boolean);
+    const url = new URL(req.url), parts = url.pathname.split('/').filter(Boolean);
+    if (parts[0] === 'dev') return new Response(DEV_PAGE, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    if (parts[0] === 'live') {
+      if (req.headers.get('Upgrade') !== 'websocket') return fail(426, 'Só por WebSocket.');
+      const code = url.searchParams.get('code');
+      if (code !== null) {
+        const me = await byCode(env.DB, code);
+        if (!me || me.id !== Number(env.ADMIN_ID)) return fail(403, 'Só o desenvolvedor.');
+      }
+      return env.LIVE.get(env.LIVE.idFromName('all')).fetch(req);
+    }
     const route = `${req.method} /${parts[0] || ''}${parts[1] ? '/:mode' : ''}`;
     if (!routes[route]) return fail(404, 'Não encontrado.');
     try {
