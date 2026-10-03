@@ -104,16 +104,31 @@ const routes = {
 };
 const PUBLIC = ['POST /signup', 'GET /ranking/:mode'];
 
+// A live game as phones report it, rebuilt field by field so nothing else reaches the page
+const LIVE_MODES = ['20', '40', '100', 'survival', 'practice', 'ai-easy', 'ai-medium', 'ai-hard', 'duel'];
+function liveGame(g) {
+  if (!g || !LIVE_MODES.includes(g.mode) || !/^[.IOTSZJLGX]{220}$/.test(g.b)) return null;
+  const int = v => Math.max(0, Math.min(1e9, Math.floor(Number(v)) || 0));
+  return {
+    mode: g.mode, room: /^[A-Z0-9]{5}$/.test(g.room) ? g.room : '', b: g.b,
+    hold: /^[IOTSZJL]?$/.test(g.hold) ? g.hold : '', next: /^[IOTSZJL]{0,5}$/.test(g.next) ? g.next : '',
+    lines: int(g.lines), pieces: int(g.pieces), level: int(g.level), incoming: int(g.incoming), time: int(g.time),
+    paused: g.paused === true, over: g.over === true, won: g.won === true,
+  };
+}
+
 // One room for all live games: phones in a game connect as players, the developer's page as the
-// viewer. Players send their board only while a viewer is connected, so nothing runs otherwise
-// (the sockets hibernate). Each player's latest board lives in its socket's attachment.
+// viewer. The worker decides which is which and the player's name (from its account code), so
+// neither can be faked. Players send their board only while a viewer is connected, so nothing
+// runs otherwise (the sockets hibernate). Each player's latest board lives in its socket's attachment.
 export class Live extends DurableObject {
   async fetch(req) {
-    const viewer = new URL(req.url).searchParams.has('code'); // checked by the worker
+    const viewer = req.headers.get('X-Role') === 'viewer';
     const [client, server] = Object.values(new WebSocketPair());
     this.ctx.acceptWebSocket(server, [viewer ? 'viewer' : 'player']);
+    if (!viewer) server.serializeAttachment({ id: crypto.randomUUID(), name: req.headers.get('X-Name') });
     if (viewer) {
-      const games = this.ctx.getWebSockets('player').map(ws => ws.deserializeAttachment()).filter(Boolean);
+      const games = this.ctx.getWebSockets('player').map(ws => ws.deserializeAttachment()).filter(g => g.b);
       server.send(JSON.stringify({ t: 'all', games }));
       this.toPlayers({ t: 'watch', on: true });
     } else if (this.ctx.getWebSockets('viewer').length) {
@@ -126,16 +141,17 @@ export class Live extends DurableObject {
   webSocketMessage(ws, msg) {
     if (!this.ctx.getTags(ws).includes('player') || typeof msg !== 'string' || msg.length > 1500) return;
     let game;
-    try { game = JSON.parse(msg); } catch (_) { return; }
-    game.id = (ws.deserializeAttachment() || {}).id || crypto.randomUUID();
+    try { game = liveGame(JSON.parse(msg)); } catch (_) { return; }
+    if (!game) return;
+    const { id, name } = ws.deserializeAttachment();
+    game = { id, name, ...game };
     ws.serializeAttachment(game);
     this.toViewers({ t: 'game', game });
   }
   webSocketClose(ws) {
     const tags = this.ctx.getTags(ws);
     if (tags.includes('player')) {
-      const game = ws.deserializeAttachment();
-      if (game) this.toViewers({ t: 'gone', id: game.id });
+      this.toViewers({ t: 'gone', id: ws.deserializeAttachment().id });
     } else if (!this.ctx.getWebSockets('viewer').some(v => v !== ws)) {
       this.toPlayers({ t: 'watch', on: false });
     }
@@ -149,12 +165,18 @@ export default {
     if (parts[0] === 'dev') return new Response(DEV_PAGE, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     if (parts[0] === 'live') {
       if (req.headers.get('Upgrade') !== 'websocket') return fail(426, 'Só por WebSocket.');
-      const code = url.searchParams.get('code');
+      // ?code= is the developer's page; ?as= a phone in a game, signed in with that code or not
+      const fwd = new Request(req), code = url.searchParams.get('code');
       if (code !== null) {
         const me = await byCode(env.DB, code);
         if (!me || me.id !== Number(env.ADMIN_ID)) return fail(403, 'Só o desenvolvedor.');
+        fwd.headers.set('X-Role', 'viewer');
+      } else {
+        const as = url.searchParams.get('as'), me = as && await byCode(env.DB, as);
+        fwd.headers.set('X-Role', 'player');
+        fwd.headers.set('X-Name', me ? me.name : 'Visitante');
       }
-      return env.LIVE.get(env.LIVE.idFromName('all')).fetch(req);
+      return env.LIVE.get(env.LIVE.idFromName('all')).fetch(fwd);
     }
     const route = `${req.method} /${parts[0] || ''}${parts[1] ? '/:mode' : ''}`;
     if (!routes[route]) return fail(404, 'Não encontrado.');

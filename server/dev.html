@@ -160,30 +160,38 @@ function drawPieces(cv, pieces) {
   });
 }
 
+// The card's layout is fixed markup; everything a game reports goes in as text, never as HTML
+const CARD = `
+  <div class="top"><div class="name"></div><span class="tag"></span></div>
+  <div class="mode"></div>
+  <div class="play">
+    <canvas class="board" width="${COLS * CELL}" height="${(ROWS - HID) * CELL}"></canvas>
+    <div class="side">
+      <div class="label">HOLD</div><canvas class="hold" width="${MINI * 5}" height="${MINI * 3}"></canvas>
+      <div class="label">NEXT</div><canvas class="next" width="${MINI * 5}" height="${MINI * 15}"></canvas>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><span class="label">TEMPO</span><b class="time"></b></div>
+    <div class="stat"><span class="label">LINHAS</span><b class="lines"></b></div>
+    <div class="stat"><span class="label extra"></span><b class="value"></b></div>
+  </div>`;
 function card(g) {
   const el = document.createElement('div');
   el.className = 'card' + (g.over ? ' over' : '');
-  const state = g.over ? (g.won ? 'VENCEU' : 'TERMINOU') : g.paused ? 'PAUSADO' : 'JOGANDO';
-  const cls = g.over ? 'end' : g.paused ? 'pause' : '';
+  el.innerHTML = CARD;
+  const put = (sel, text) => { el.querySelector(sel).textContent = text; };
   const battle = g.mode === 'duel' || g.mode.startsWith('ai-');
-  const [label, value] = battle ? ['LIXO', g.incoming] : /^\d+$/.test(g.mode) ? ['FALTAM', Math.max(0, Number(g.mode) - g.lines)]
+  const [label, value] = battle ? ['LIXO', g.incoming] : /^d+$/.test(g.mode) ? ['FALTAM', Math.max(0, Number(g.mode) - g.lines)]
     : g.mode === 'survival' ? ['NÍVEL', g.level] : ['PEÇAS', g.pieces];
-  el.innerHTML = `
-    <div class="top"><div class="name"></div><span class="tag ${cls}">${state}</span></div>
-    <div class="mode">${MODES[g.mode] || g.mode}${g.room ? ' · SALA ' + g.room : ''}</div>
-    <div class="play">
-      <canvas class="board" width="${COLS * CELL}" height="${(ROWS - HID) * CELL}"></canvas>
-      <div class="side">
-        <div class="label">HOLD</div><canvas class="hold" width="${MINI * 5}" height="${MINI * 3}"></canvas>
-        <div class="label">NEXT</div><canvas class="next" width="${MINI * 5}" height="${MINI * 15}"></canvas>
-      </div>
-    </div>
-    <div class="stats">
-      <div class="stat"><span class="label">TEMPO</span><b>${fmt(g.time)}</b></div>
-      <div class="stat"><span class="label">LINHAS</span><b>${g.lines}</b></div>
-      <div class="stat"><span class="label">${label}</span><b>${value}</b></div>
-    </div>`;
-  el.querySelector('.name').textContent = g.name; // typed by players: never as HTML
+  put('.name', g.name);
+  put('.tag', g.over ? (g.won ? 'VENCEU' : 'TERMINOU') : g.paused ? 'PAUSADO' : 'JOGANDO');
+  if (g.over || g.paused) el.querySelector('.tag').classList.add(g.over ? 'end' : 'pause');
+  put('.mode', (MODES[g.mode] || '') + (g.room ? ' · SALA ' + g.room : ''));
+  put('.time', fmt(g.time));
+  put('.lines', g.lines);
+  put('.extra', label);
+  put('.value', value);
   drawBoard(el.querySelector('.board'), g.b);
   drawPieces(el.querySelector('.hold'), g.hold);
   drawPieces(el.querySelector('.next'), g.next);

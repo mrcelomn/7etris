@@ -11,7 +11,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 52;
+const VERSION = 53;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
@@ -110,7 +110,7 @@ function startGame(m, seed) {
   $('foeBox').hidden = !foe;
   if (foe) $('foeLabel').textContent = mode === 'duel' ? 'AMIGO' : 'IA';
   stepAcc = 0;
-  live.start();
+  live.start(account.signedIn() && account.session.code);
   state = 'play';
   show(null);
   stats();
@@ -631,7 +631,7 @@ function liveState() {
   const b = game.board.map(r => r.slice()), c = game.cur;
   if (c) c.m.forEach((r, y) => r.forEach((v, x) => { if (v && c.y + y >= 0) b[c.y + y][c.x + x] = c.t; }));
   return {
-    name: account.signedIn() ? account.session.name : 'Visitante', mode, room: mode === 'duel' ? duelRoom : '',
+    mode, room: mode === 'duel' ? duelRoom : '',
     b: packBoard(b), hold: game.hold || '', next: game.queue.slice(0, PREVIEW).join(''),
     lines: game.lines, pieces: game.pieces, level: game.level, incoming: game.incoming, time: Math.floor(game.elapsed),
     paused: state === 'pause', over: game.over, won: game.won,
