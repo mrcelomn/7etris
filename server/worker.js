@@ -90,10 +90,10 @@ const routes = {
     const best = record ? score : old.score;
     return json({ score, best, record, rank: await rank(db, mode, best) });
   },
-  // Top 50, plus the player's own place when signed in
+  // Top 50 (with when each record was set), plus the player's own place when signed in
   async 'GET /ranking/:mode'(req, db, me, mode) {
     if (!RANKED.includes(mode)) return fail(404, 'Modo sem ranking.');
-    const { results } = await db.prepare(`SELECT u.name, r.score FROM records r JOIN users u ON u.id = r.user_id WHERE r.mode = ? ORDER BY r.score ${better(mode)}, r.at LIMIT 50`).bind(mode).all();
+    const { results } = await db.prepare(`SELECT u.name, r.score, r.at FROM records r JOIN users u ON u.id = r.user_id WHERE r.mode = ? ORDER BY r.score ${better(mode)}, r.at LIMIT 50`).bind(mode).all();
     let mine = null;
     if (me) {
       const row = await db.prepare('SELECT score FROM records WHERE user_id = ? AND mode = ?').bind(me.id, mode).first();

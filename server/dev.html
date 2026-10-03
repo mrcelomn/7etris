@@ -51,6 +51,17 @@ input, button { font: inherit; border-radius: 10px; padding: 12px; border: 1px s
 input { background: var(--panel); color: var(--fg); font: 700 22px/1 "JetBrains Mono", monospace; letter-spacing: .2em; text-align: center; text-transform: uppercase; }
 button { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; letter-spacing: .08em; cursor: pointer; }
 .err { color: var(--warn); min-height: 1.3em; }
+.rank { max-width: 1200px; margin: 36px auto 0; }
+.rank h2 { margin: 0 0 12px; font: 400 34px/1 "VT323", monospace; letter-spacing: .06em; }
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.tabs button { background: var(--panel); border-color: var(--line); color: var(--muted); padding: 8px 14px; }
+.tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+table { width: 100%; max-width: 560px; border-collapse: collapse; }
+td { padding: 9px 10px; border-bottom: 1px solid var(--line); }
+td.pos { color: var(--muted); width: 3em; font: 500 14px "JetBrains Mono", monospace; }
+td.who { font-weight: 700; }
+td.score { font: 700 15px "JetBrains Mono", monospace; text-align: right; }
+td.when { color: var(--muted); font-size: 13px; text-align: right; white-space: nowrap; }
 .out { background: none; border: 1px solid var(--line); color: var(--muted); padding: 6px 12px; font-size: 13px; margin-left: auto; }
 </style>
 </head>
@@ -61,6 +72,15 @@ button { background: var(--accent); border-color: var(--accent); color: #fff; fo
   <button class="out" id="out" hidden>SAIR</button>
 </header>
 <main id="main"></main>
+<section class="rank" id="rank" hidden>
+  <h2>RANKING</h2>
+  <div class="tabs" id="tabs">
+    <button data-mode="20">20 LINHAS</button><button data-mode="40">40 LINHAS</button>
+    <button data-mode="100">100 LINHAS</button><button data-mode="survival">SOBREVIVÊNCIA</button>
+  </div>
+  <table><tbody id="rankRows"></tbody></table>
+  <div class="empty" id="rankMsg" hidden></div>
+</section>
 
 <script>
 // The developer's live view of every game being played online. Opened with the admin account's
@@ -78,6 +98,34 @@ let ws = null, retry = 1000;
 const read = () => { try { return localStorage.getItem(KEY); } catch (_) { return null; } };
 const write = v => { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (_) {} };
 
+// Ranking: the same top 50 the game shows, refreshed every 30 s while the page is open
+const RANK_API = 'https://7etris.7etris-jogo.workers.dev/ranking/';
+let rankMode = '40', rankTimer = 0;
+const score = (mode, v) => (mode === 'survival' ? `nível ${1 + Math.floor(v / 10)} · ${v} linhas` : fmt(v));
+const when = at => new Date(at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+async function loadRanking(mode = rankMode) {
+  rankMode = mode;
+  clearTimeout(rankTimer);
+  rankTimer = setTimeout(loadRanking, 30000);
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  let res;
+  try { res = await fetch(RANK_API + mode).then(r => r.json()); } catch (_) { res = { error: 'Sem conexão.' }; }
+  if (mode !== rankMode) return;
+  const rows = (res.top || []).map((r, i) => {
+    const tr = document.createElement('tr');
+    for (const [cls, text] of [['pos', `${i + 1}º`], ['who', r.name], ['score', score(mode, r.score)], ['when', when(r.at)]]) {
+      const td = document.createElement('td');
+      td.className = cls; td.textContent = text;
+      tr.append(td);
+    }
+    return tr;
+  });
+  $('rankRows').replaceChildren(...rows);
+  $('rankMsg').hidden = rows.length > 0;
+  $('rankMsg').textContent = res.error || 'Ninguém neste ranking ainda.';
+}
+$('tabs').addEventListener('click', e => { if (e.target.dataset.mode) loadRanking(e.target.dataset.mode); });
+
 function status(text, live = false) {
   $('statusText').textContent = text;
   $('status').classList.toggle('live', live);
@@ -85,6 +133,8 @@ function status(text, live = false) {
 
 function askCode(error = '') {
   $('out').hidden = true;
+  $('rank').hidden = true;
+  clearTimeout(rankTimer);
   status('Desconectado');
   $('main').innerHTML = `<form id="login">
     <div>Código da conta do desenvolvedor</div>
@@ -108,7 +158,11 @@ function connect() {
   $('main').innerHTML = '<div class="empty">Conectando…</div>';
   let opened = false;
   ws = new WebSocket(`${SOCKET}?code=${encodeURIComponent(code)}`);
-  ws.onopen = () => { opened = true; retry = 1000; status('Ao vivo', true); };
+  ws.onopen = () => {
+    opened = true; retry = 1000; status('Ao vivo', true);
+    $('rank').hidden = false;
+    loadRanking();
+  };
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.t === 'all') { games.clear(); m.games.forEach(g => games.set(g.id, g)); }
