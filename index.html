@@ -59,6 +59,7 @@
 </div>
 
 <div class="ui screen" id="menu" hidden>
+  <button class="profile" id="openAccount" aria-label="Conta"></button>
   <button class="gear" id="openSettings" aria-label="Ajustes">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
   </button>
@@ -83,6 +84,7 @@
       </div>
       <button class="row" data-mode="survival">SOBREVIVÊNCIA<span class="rec" id="survivalRec">—</span></button>
       <button class="row" data-mode="practice">TREINO</button>
+      <button class="row" id="openRanking">RANKING<span class="chev side" aria-hidden="true"></span></button>
     </div>
     <div class="ver" id="ver"></div>
   </div>
@@ -104,14 +106,6 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
           </button>
         </div>
-      </div>
-      <div class="setting">
-        <div class="setting-head">DADOS</div>
-        <div class="edit-row">
-          <button class="key" id="dataCopy">COPIAR</button>
-          <button class="key" id="dataRestore">RESTAURAR</button>
-        </div>
-        <div class="note">Copie um código com seus recordes e ajustes e restaure-o se reinstalar o app.</div>
       </div>
     </div>
     <button class="row primary" id="settingsBack">VOLTAR</button>
@@ -135,6 +129,49 @@
     </div>
     <div class="sub" id="duelMsg" aria-live="polite"></div>
     <button class="row plain" id="duelBack">VOLTAR</button>
+  </div>
+</div>
+
+<div class="ui screen" id="accountScr" hidden>
+  <div class="panel">
+    <h2>CONTA</h2>
+    <div class="group" id="accGuest">
+      <div class="setting">
+        <div class="setting-head">CRIAR CONTA</div>
+        <input class="code-input" id="accName" maxlength="12" placeholder="SEU NOME" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Seu nome">
+        <button class="row primary" id="accCreate">CRIAR</button>
+      </div>
+      <div class="setting">
+        <div class="setting-head">JÁ TENHO CONTA</div>
+        <input class="code-input" id="accCode" maxlength="9" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-label="Código da conta">
+        <button class="row plain" id="accEnter">ENTRAR</button>
+      </div>
+    </div>
+    <div class="result-text" id="accUser" hidden>
+      <div class="big" id="accUserName"></div>
+      <div class="sub">Seu código</div>
+      <div class="big code" id="accUserCode"></div>
+      <div class="note">Guarde este código: é com ele que você entra em qualquer celular, e sem ele não dá para recuperar a conta.</div>
+      <button class="row plain" id="accCopy">COPIAR CÓDIGO</button>
+      <button class="row plain" id="accOut">SAIR DA CONTA</button>
+    </div>
+    <div class="sub" id="accMsg" aria-live="polite"></div>
+    <button class="row primary" id="accBack">VOLTAR</button>
+  </div>
+</div>
+
+<div class="ui screen" id="rankScr" hidden>
+  <div class="panel">
+    <h2>RANKING</h2>
+    <div class="edit-row" id="rankTabs">
+      <button class="key" data-rank="20">20</button>
+      <button class="key" data-rank="40">40</button>
+      <button class="key" data-rank="100">100</button>
+      <button class="key" data-rank="survival">SOBREV.</button>
+    </div>
+    <ol class="rank" id="rankList"></ol>
+    <div class="sub" id="rankMsg" aria-live="polite"></div>
+    <button class="row primary" id="rankBack">VOLTAR</button>
   </div>
 </div>
 

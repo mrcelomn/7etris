@@ -1,4 +1,4 @@
-// Playfield rules shared by the player's game (main.js) and the AI opponent (ai.js).
+// Playfield rules shared by the player's game (engine.js) and the AI opponent (ai.js).
 // Boards are ROWS arrays of COLS cells holding a piece letter, 'G' for garbage, 'X' for solid
 // garbage, or null; the top HID rows sit above the visible field, where pieces spawn.
 

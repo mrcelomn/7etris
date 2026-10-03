@@ -1,0 +1,9 @@
+// Deploy from this folder: npx wrangler@4 deploy
+{
+  "name": "7etris",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [
+    { "binding": "DB", "database_name": "7etris", "database_id": "a4df9855-6d14-4b9a-a6f6-3981798a9dbf" }
+  ]
+}

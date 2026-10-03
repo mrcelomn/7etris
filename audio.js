@@ -1,6 +1,6 @@
 // All sound is synthesized with Web Audio, no audio files: the soundtracks (the Tetris theme,
 // Korobeiniki, a traditional folk song, and an original piece for the Obra Dinn look) and
-// packs of short effects in the style of Jstris's sound skins.
+// packs of short effects in the style of Jstris's sound skins (one modelled on its default).
 // iOS only lets audio start inside a tap, so main.js calls unlock() on every touch.
 
 let ctx = null, musicOut, sfxOut, noise, pulse25, pulse12, pianoWave;
@@ -240,6 +240,19 @@ const PACKS = {
     clear: (t, f, combo) => { const m = minorHz(combo); strings(sfxOut, m / 2, t, 0.35, 0.12); bell(sfxOut, m * 2, t, 1.2, 0.06); },
     over: t => [147, 175, 220].forEach(f => strings(sfxOut, f, t, 1.6, 0.08)),
     win: t => [0, 0.45, 0.9].forEach(d => bell(sfxOut, 784, t + d, 1.4, 0.08)),
+  },
+  // After Jstris's default skin: dry, very short ticks for moves, a hollow knock on hard drop,
+  // a bright chime per clear that climbs with the combo
+  jstris: {
+    name: 'JSTRIS',
+    move: t => { hiss(sfxOut, t, 0.012, 5200, 0.45); tone(sfxOut, 2100, t, 0.012, 'sine', 0.06); },
+    rotate: t => { hiss(sfxOut, t, 0.016, 7000, 0.4); tone(sfxOut, 1600, t, 0.025, 'triangle', 0.1, 2200); },
+    hold: t => { hiss(sfxOut, t, 0.09, 2500, 0.25); tone(sfxOut, 700, t, 0.08, 'sine', 0.12, 1050); },
+    lock: t => { tone(sfxOut, 320, t, 0.035, 'triangle', 0.3, 200); hiss(sfxOut, t, 0.02, 2000, 0.2); },
+    drop: t => { tone(sfxOut, 150, t, 0.09, 'sine', 0.75, 60); tone(sfxOut, 420, t, 0.03, 'triangle', 0.3, 180); hiss(sfxOut, t, 0.05, 1400, 0.45); },
+    clear: (t, f) => { tone(sfxOut, f, t, 0.3, 'sine', 0.24); tone(sfxOut, f * 2, t, 0.18, 'sine', 0.08); tone(sfxOut, f * 3, t, 0.08, 'triangle', 0.05); },
+    over: t => notes([523, 440, 349, 262], 0.11, 0.25, 'triangle', 0.2, t),
+    win: t => notes([523, 659, 784, 1047], 0.08, 0.35, 'sine', 0.2, t),
   },
   space: {
     name: 'ESPACIAL',
