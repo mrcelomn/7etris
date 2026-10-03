@@ -17,8 +17,9 @@ const KICKS_I = [
   [[0,0],[2,0],[-1,0],[2,-1],[-1,2]],
   [[0,0],[1,0],[-2,0],[1,2],[-2,-1]],
 ];
-// Side moves: first repeat after DAS ms, then one cell every ARR ms while held
-const DAS = 130, ARR = 22, SOFT = 25, LOCK = 500, MAX_RESETS = 15;
+// Side moves: first repeat after DAS ms (the Guideline's 10 frames, so a quick tap moves just one
+// cell), then one cell every ARR ms while held
+const DAS = 167, ARR = 22, SOFT = 25, LOCK = 500, MAX_RESETS = 15;
 // Survival's ms per row by level: the Tetris Guideline curve, (0.8 - (level - 1) * 0.007)^(level - 1)
 // seconds, written out rounded so the phone and the server always agree; 1 ms from level 18 on
 const SURVIVAL = [1000, 793, 618, 473, 355, 262, 190, 135, 94, 64, 43, 28, 18, 11, 7, 4, 3];
