@@ -157,6 +157,10 @@ canvas { display: block; }
 .btn small { font-size: 9px; letter-spacing: .12em; color: var(--btn-label); }
 /* Invisible ring around A and B that still counts as a press, so taps needn't be exact */
 .btn::before { content: ""; position: absolute; inset: -16px; border-radius: 50%; }
+/* Shapes the player can pick for A and B in the controls editor */
+.btn[data-shape="soft"], .btn[data-shape="soft"]::before { border-radius: 24%; }
+.btn[data-shape="square"], .btn[data-shape="square"]::before { border-radius: 6%; }
+#shapeRow .key { padding: 0 6px; font-size: 13px; }
 
 .editing .ctl { outline: 2px dashed var(--muted); outline-offset: 5px; }
 .editing .ctl.sel { outline: 2px solid var(--accent); }
