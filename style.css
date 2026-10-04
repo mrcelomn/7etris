@@ -452,6 +452,19 @@ canvas { display: block; }
 :is([data-skin="gameboy"], [data-skin="obra"]) .sub.hl { color: var(--fg); }
 :is([data-skin="gameboy"], [data-skin="obra"]) .chev { border-color: var(--fg); }
 
+/* iOS can't lock a web page's orientation, so a phone turned sideways gets this instead of the
+   game (main.js pauses it). Wide screens like tablets and computers keep playing. */
+.rotate { display: none; }
+@media (orientation: landscape) and (max-height: 500px) {
+  .rotate {
+    position: fixed; inset: 0; z-index: 100; background: var(--bg); color: var(--fg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    font-size: 18px; font-weight: 700; letter-spacing: .06em; text-align: center;
+  }
+  .rotate svg { width: 56px; height: 56px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+  .rotate p { margin: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }
