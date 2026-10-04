@@ -3,7 +3,7 @@
 // Controls never cover the playfield (board, hold, next queue, stats), the pause button or each other.
 
 // A layout gives each control's centre (x as a fraction of the game's width, y of the screen's
-// height) and scale. Width and height at scale 1, as a fraction of the game's width:
+// height) and scale, and A and B a shape ('round', 'soft' or 'square'; round when unset). Width and height at scale 1, as a fraction of the game's width:
 const BASE = { dpad: [0.44, 0.44], a: [0.21, 0.21], b: [0.21, 0.21] };
 const DEFAULT_SCALE = { dpad: 1.08, a: 1, b: 1 };
 const MIN_SCALE = 0.6, MAX_SCALE = 1.8, GAP = 6;
@@ -71,6 +71,7 @@ function apply(id, r, s) {
   p.s = s;
   Object.assign(els[id].style, { left: r.left + 'px', top: r.top + 'px', width: r.w + 'px', height: r.h + 'px' });
   els[id].style.setProperty('--u', r.w + 'px');
+  if (id !== 'dpad') els[id].dataset.shape = p.shape || 'round';
 }
 function tryPlace(id, p) {
   const r = rectFor(id, p);
@@ -168,10 +169,22 @@ export function editPad(done) {
   select(selected);
 }
 
+// The shape choices apply to the selected button; the d-pad keeps its cross
 function select(id) {
   selected = id;
   for (const k in els) els[k].classList.toggle('sel', editing && k === id);
+  $('shapeRow').hidden = id === 'dpad';
+  const shape = layout && layout[id].shape || 'round';
+  document.querySelectorAll('[data-shape]').forEach(b => { if (b.classList.contains('key')) b.classList.toggle('on', b.dataset.shape === shape); });
 }
+$('shapeRow').addEventListener('click', e => {
+  const shape = e.target.dataset.shape;
+  if (!shape || selected === 'dpad') return;
+  custom = true; // a default layout would be recomputed, losing the shape
+  layout[selected].shape = shape;
+  placePad();
+  select(selected);
+});
 
 // One finger on a control drags it; a second finger anywhere turns it into a pinch that
 // resizes the selected control.
@@ -221,7 +234,7 @@ addEventListener('wheel', e => {
   tryPlace(selected, { ...p, s: clamp(p.s - Math.sign(e.deltaY) * 0.05, MIN_SCALE, MAX_SCALE) });
 }, { passive: false });
 
-$('padReset').addEventListener('click', () => { custom = false; placePad(); });
+$('padReset').addEventListener('click', () => { custom = false; placePad(); select(selected); });
 $('padDone').addEventListener('click', () => {
   editing = false;
   custom = true;
