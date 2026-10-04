@@ -11,7 +11,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 54;
+const VERSION = 55;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
@@ -248,6 +248,9 @@ on('pauseMenu', openMenu);
 on('again', again);
 on('resMenu', openMenu);
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+// A phone turned sideways can't play (style.css covers the game with a notice), so it pauses
+const sideways = matchMedia('(orientation: landscape) and (max-height: 500px)');
+sideways.addEventListener('change', () => { if (sideways.matches) pause(); });
 
 // ---------- account ----------
 // First opening: the account screen, where the player signs up, signs in or plays as a visitor
