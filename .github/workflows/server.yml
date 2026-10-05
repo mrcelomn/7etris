@@ -1,0 +1,17 @@
+# Deploys the account and ranking server (server/) to Cloudflare whenever it, or the game rules
+# it replays ranked games with, change on main. Needs the CLOUDFLARE_API_TOKEN repository secret.
+name: server
+on:
+  push:
+    branches: [main]
+    paths: [server/**, engine.js, rules.js, .github/workflows/server.yml]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: server

@@ -1,6 +1,8 @@
-// Deploy from this folder: npx wrangler@4 deploy
+// Deployed by .github/workflows/server.yml on every push to main (or by hand from this folder:
+// npx wrangler@4 deploy)
 {
   "name": "7etris",
+  "account_id": "4a9dacbaea415b6ddaafbf8a115da328",
   "main": "worker.js",
   "compatibility_date": "2026-10-01",
   "rules": [{ "type": "Text", "globs": ["**/*.html"] }],
