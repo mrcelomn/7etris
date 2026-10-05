@@ -8,7 +8,7 @@ const PIECES = { T: '#caffbf', I: '#ffd6a5', O: '#bde0fe', S: '#ffc6ff', Z: '#9b
 // Per skin: the piece shown and a background that suits the skin
 const SKIN_LOOK = {
   classic: ['T', '#2a2f3a'], flat: ['L', '#ffd6a5'], glossy: ['S', '#bde0fe'], bevel: ['J', '#caffbf'],
-  outline: ['Z', '#1b1e25'], mono: ['T', '#f6e3ec'], greys: ['L', '#3a3d44'], neon: ['S', '#0b0b14'],
+  outline: ['Z', '#24324a'], mono: ['T', '#f6e3ec'], greys: ['L', '#3a3d44'], neon: ['S', '#2a1748'],
   pastel: ['O', '#fff1e6'], jelly: ['T', '#d8f3ff'], gameboy: ['L', '#9bbc0f'], obra: ['T', '#e3dcc6'],
 };
 
