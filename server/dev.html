@@ -36,6 +36,9 @@ main { max-width: 1200px; margin: 0 auto; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; width: 290px; }
 .card.over { opacity: .6; }
 .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.avatar { display: block; flex: none; border-radius: 50%; }
+.who-box { display: flex; align-items: center; gap: 10px; min-width: 0; }
+td.who .who-box { gap: 8px; }
 .name { font-size: 20px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mode { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--muted); white-space: nowrap; }
 .play { display: flex; gap: 10px; }
@@ -84,7 +87,9 @@ td.when { color: var(--muted); font-size: 13px; text-align: right; white-space: 
   <div class="empty" id="rankMsg" hidden></div>
 </section>
 
-<script>
+<script type="module">
+// Profile pictures are drawn by the game's own code, loaded from the game's site
+import { drawAvatar } from 'https://mrcelomn.github.io/7etris/avatars.js';
 // The developer's live view of every game being played online. Opened with the admin account's
 // code (kept in this browser); the server relays each phone's board a few times a second.
 const SOCKET = 'wss://7etris.7etris-jogo.workers.dev/live';
@@ -99,6 +104,15 @@ let ws = null, retry = 1000;
 
 const read = () => { try { return localStorage.getItem(KEY); } catch (_) { return null; } };
 const write = v => { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (_) {} };
+
+// A profile picture and a name side by side
+function person(avatar, name, size) {
+  const box = document.createElement('span'), cv = document.createElement('canvas'), n = document.createElement('span');
+  box.className = 'who-box'; cv.className = 'avatar'; n.textContent = name;
+  drawAvatar(cv, avatar, size);
+  box.append(cv, n);
+  return box;
+}
 
 // Ranking: the same top 50 the game shows, refreshed every 30 s while the page is open
 const RANK_API = 'https://7etris.7etris-jogo.workers.dev/ranking/';
@@ -117,7 +131,8 @@ async function loadRanking(mode = rankMode) {
     const tr = document.createElement('tr');
     for (const [cls, text] of [['pos', `${i + 1}º`], ['who', r.name], ['score', score(mode, r.score)], ['when', when(r.at)]]) {
       const td = document.createElement('td');
-      td.className = cls; td.textContent = text;
+      td.className = cls;
+      if (cls === 'who') td.append(person(r.avatar, text, 24)); else td.textContent = text;
       tr.append(td);
     }
     return tr;
@@ -218,7 +233,7 @@ function drawPieces(cv, pieces) {
 
 // The card's layout is fixed markup; everything a game reports goes in as text, never as HTML
 const CARD = `
-  <div class="top"><div class="name"></div><span class="tag"></span></div>
+  <div class="top"><div class="who-box"><canvas class="avatar"></canvas><div class="name"></div></div><span class="tag"></span></div>
   <div class="mode"></div>
   <div class="play">
     <canvas class="board" width="${COLS * CELL}" height="${(ROWS - HID) * CELL}"></canvas>
@@ -241,6 +256,7 @@ function card(g) {
   const [label, value] = battle ? ['LIXO', g.incoming] : /^d+$/.test(g.mode) ? ['FALTAM', Math.max(0, Number(g.mode) - g.lines)]
     : g.mode === 'survival' ? ['NÍVEL', g.level] : ['PEÇAS', g.pieces];
   put('.name', g.name);
+  drawAvatar(el.querySelector('.avatar'), g.avatar, 34);
   put('.tag', g.over ? (g.won ? 'VENCEU' : 'TERMINOU') : g.paused ? 'PAUSADO' : 'JOGANDO');
   if (g.over || g.paused) el.querySelector('.tag').classList.add(g.over ? 'end' : 'pause');
   put('.mode', (MODES[g.mode] || '') + (g.room ? ' · SALA ' + g.room : ''));

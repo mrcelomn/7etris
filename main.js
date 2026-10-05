@@ -3,6 +3,7 @@ import * as account from './account.js';
 import * as live from './live.js';
 import { initPad, placePad, editPad } from './pad.js';
 import { SKINS, drawBlock, setInk } from './skins.js';
+import { AVATARS, DEFAULT_AVATAR, drawAvatar } from './avatars.js';
 import { COLS, ROWS, HID, VIS, SHAPES, newBoard, seeded, packBoard, unpackBoard } from './rules.js';
 import { Game, PREVIEW, isMarathon, isBattle } from './engine.js';
 import { Bot } from './ai.js';
@@ -11,7 +12,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 56;
+const VERSION = 57;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
@@ -27,6 +28,7 @@ function save(key, value) {
 // battle wins keyed by mode ('ai-easy'…). Signed in, the first two are the server's checked ones.
 let records = load('7etris-records', {});
 const sound = load('7etris-audio', { music: true, musicVol: 60, sfx: true, sfxVol: 80, silentOk: false, pack: 'classic' });
+// avatar: the profile picture's id (avatars.js); unset shows the default
 const look = load('7etris-look', { skin: 'classic', theme: 'dark' });
 // v15 changed the default controls back to the Game Boy layout; drop layouts saved for the old shapes
 try { localStorage.removeItem('7etris-pad'); } catch (_) {}
@@ -77,7 +79,7 @@ let duelRoom = ''; // its room code
 const goal = () => (isMarathon(mode) ? Number(mode) : Infinity);
 
 // ---------- flow ----------
-const SCREENS = ['menu', 'settingsScr', 'soundScr', 'skinScr', 'duelScr', 'accountScr', 'rankScr', 'pauseScr', 'result'];
+const SCREENS = ['menu', 'settingsScr', 'soundScr', 'skinScr', 'duelScr', 'accountScr', 'avatarScr', 'rankScr', 'pauseScr', 'result'];
 function show(id) {
   SCREENS.forEach(s => { $(s).hidden = s !== id; });
   // Coming back to the menu always finds MARATONA, DUELOS and IA folded up
@@ -210,7 +212,8 @@ function renderRecords() {
     el.textContent = records[el.dataset.wins] ? winsText(el.dataset.wins) : '—';
   });
   $('survivalRec').textContent = records.survival ? `nível ${records.survival}` : '—';
-  $('openAccount').textContent = account.signedIn() ? account.session.name : 'VISITANTE';
+  $('profileName').textContent = account.signedIn() ? account.session.name : 'VISITANTE';
+  drawAvatar($('profileAvatar'), look.avatar, 32);
 }
 function openMenu() {
   state = 'menu';
@@ -263,8 +266,40 @@ function openAccount(firstTime = false) {
   $('accSave').hidden = !account.canSaveOnDevice() || !!account.session?.saved;
   $('accName').value = ''; $('accCode').value = ''; $('accMsg').textContent = '';
   $('accBack').textContent = firstTime ? 'JOGAR COMO VISITANTE' : 'VOLTAR';
+  drawAvatar($('accAvatarImg'), look.avatar, 88);
   show('accountScr');
 }
+
+// Profile picture: picked from the drawn ones, kept with the look (and so with the account)
+for (const group of new Set(AVATARS.map(a => a.group))) {
+  const label = document.createElement('div'), grid = document.createElement('div');
+  label.className = 'glabel'; label.textContent = group;
+  grid.className = 'avatar-grid';
+  for (const a of AVATARS.filter(x => x.group === group)) {
+    const b = document.createElement('button'), cv = document.createElement('canvas');
+    b.dataset.avatar = a.id;
+    b.setAttribute('aria-label', 'Foto ' + a.id);
+    cv.className = 'avatar';
+    b.append(cv);
+    grid.append(b);
+    drawAvatar(cv, a.id, 56);
+    b.addEventListener('click', () => {
+      look.avatar = a.id;
+      save('7etris-look', look);
+      sync();
+      renderAvatars();
+    });
+  }
+  $('avatarGroups').append(label, grid);
+}
+function renderAvatars() {
+  const id = look.avatar || DEFAULT_AVATAR;
+  document.querySelectorAll('[data-avatar]').forEach(b => b.classList.toggle('on', b.dataset.avatar === id));
+  drawAvatar($('accAvatarImg'), id, 88);
+  drawAvatar($('profileAvatar'), id, 32);
+}
+on('accAvatar', () => { renderAvatars(); show('avatarScr'); });
+on('avatarBack', () => openAccount());
 // Brings in a signed-in account's settings (a reload applies them everywhere at once)
 function useAccount(me) {
   useAccountRecords(me);
@@ -343,10 +378,13 @@ async function showRanking(m) {
   const res = await account.ranking(m);
   if (rankMode !== m) return;
   if (res.error) { $('rankMsg').textContent = res.error; return; }
-  const row = (pos, name, score, me) => {
-    const li = document.createElement('li');
+  const row = (pos, r, me) => {
+    const li = document.createElement('li'), cv = document.createElement('canvas');
     if (me) li.className = 'me';
-    for (const [cls, text] of [['pos', `${pos}º`], ['who', name], ['score', scoreText(m, score)]]) {
+    cv.className = 'avatar';
+    drawAvatar(cv, me ? look.avatar : r.avatar, 26);
+    for (const [cls, text] of [['pos', `${pos}º`], ['avatar'], ['who', r.name], ['score', scoreText(m, r.score)]]) {
+      if (cls === 'avatar') { li.append(cv); continue; }
       const span = document.createElement('span');
       span.className = cls; span.textContent = text;
       li.append(span);
@@ -354,12 +392,12 @@ async function showRanking(m) {
     return li;
   };
   const mine = res.me && res.me.name;
-  const items = res.top.map((r, i) => row(i + 1, r.name, r.score, r.name === mine));
+  const items = res.top.map((r, i) => row(i + 1, r, r.name === mine));
   // The player's own place, when it's below the list
   if (res.me && res.me.rank > res.top.length) {
     const gap = document.createElement('li');
     gap.className = 'gap'; gap.textContent = '…';
-    items.push(gap, row(res.me.rank, res.me.name, res.me.score, true));
+    items.push(gap, row(res.me.rank, res.me, true));
   }
   $('rankList').replaceChildren(...items);
   $('rankMsg').textContent = res.top.length ? '' : 'Ninguém no ranking ainda. Seja o primeiro!';

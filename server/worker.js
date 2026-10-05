@@ -93,7 +93,7 @@ const routes = {
   // Top 50 (with when each record was set), plus the player's own place when signed in
   async 'GET /ranking/:mode'(req, db, me, mode) {
     if (!RANKED.includes(mode)) return fail(404, 'Modo sem ranking.');
-    const { results } = await db.prepare(`SELECT u.name, r.score, r.at FROM records r JOIN users u ON u.id = r.user_id WHERE r.mode = ? ORDER BY r.score ${better(mode)}, r.at LIMIT 50`).bind(mode).all();
+    const { results } = await db.prepare(`SELECT u.name, r.score, r.at, json_extract(u.data, '$.look.avatar') AS avatar FROM records r JOIN users u ON u.id = r.user_id WHERE r.mode = ? ORDER BY r.score ${better(mode)}, r.at LIMIT 50`).bind(mode).all();
     let mine = null;
     if (me) {
       const row = await db.prepare('SELECT score FROM records WHERE user_id = ? AND mode = ?').bind(me.id, mode).first();
@@ -126,7 +126,7 @@ export class Live extends DurableObject {
     const viewer = req.headers.get('X-Role') === 'viewer';
     const [client, server] = Object.values(new WebSocketPair());
     this.ctx.acceptWebSocket(server, [viewer ? 'viewer' : 'player']);
-    if (!viewer) server.serializeAttachment({ id: crypto.randomUUID(), name: req.headers.get('X-Name') });
+    if (!viewer) server.serializeAttachment({ id: crypto.randomUUID(), name: req.headers.get('X-Name'), avatar: req.headers.get('X-Avatar') || '' });
     if (viewer) {
       const games = this.ctx.getWebSockets('player').map(ws => ws.deserializeAttachment()).filter(g => g.b);
       server.send(JSON.stringify({ t: 'all', games }));
@@ -143,8 +143,8 @@ export class Live extends DurableObject {
     let game;
     try { game = liveGame(JSON.parse(msg)); } catch (_) { return; }
     if (!game) return;
-    const { id, name } = ws.deserializeAttachment();
-    game = { id, name, ...game };
+    const { id, name, avatar } = ws.deserializeAttachment();
+    game = { id, name, avatar, ...game };
     ws.serializeAttachment(game);
     this.toViewers({ t: 'game', game });
   }
@@ -175,6 +175,8 @@ export default {
         const as = url.searchParams.get('as'), me = as && await byCode(env.DB, as);
         fwd.headers.set('X-Role', 'player');
         fwd.headers.set('X-Name', me ? me.name : 'Visitante');
+        const avatar = me && (JSON.parse(me.data || '{}').look || {}).avatar;
+        if (/^[a-z]+-[A-Za-z]+$/.test(avatar || '')) fwd.headers.set('X-Avatar', avatar);
       }
       return env.LIVE.get(env.LIVE.idFromName('all')).fetch(fwd);
     }
