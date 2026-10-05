@@ -273,12 +273,27 @@ canvas { display: block; }
 }
 #openRanking svg { stroke-width: 3; }
 .profile {
-  min-width: 0; height: 42px; padding: 0 16px; border-radius: 999px; cursor: pointer;
+  min-width: 0; height: 42px; padding: 0 16px 0 5px; border-radius: 999px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
   background: var(--key); border: 1px solid var(--key-hi); color: var(--fg);
   font-size: 14px; font-weight: 700; letter-spacing: .06em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .profile:active { background: var(--key-hi); }
+.profile span { overflow: hidden; text-overflow: ellipsis; }
+
+/* Profile pictures (avatars.js): always round, in every skin */
+.avatar { display: block; flex: none; border-radius: 50%; }
+.avatar-pick {
+  align-self: center; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer;
+  font-size: 12px; font-weight: 700; letter-spacing: .1em;
+}
+.avatar-pick:active .avatar { transform: scale(.95); }
+.avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 12px; justify-items: center; }
+.avatar-grid button { padding: 3px; border: 2px solid transparent; border-radius: 50%; background: none; cursor: pointer; }
+.avatar-grid button.on { border-color: var(--accent); }
+:is([data-skin="gameboy"], [data-skin="obra"]) .avatar-grid button.on { border-color: var(--fg); }
 #accUserCode { letter-spacing: .12em; user-select: text; -webkit-user-select: text; }
 #accUser .note { text-align: center; }
 #accName { letter-spacing: .08em; }
@@ -288,7 +303,7 @@ canvas { display: block; }
 /* Ranking: place, name, score; the player's own row stands out */
 .rank { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .rank li {
-  display: grid; grid-template-columns: 2.6em 1fr auto; align-items: center; gap: 8px;
+  display: grid; grid-template-columns: 2.6em auto 1fr auto; align-items: center; gap: 8px;
   padding: 11px 14px; border-radius: 10px; background: var(--key); border: 1px solid var(--key-hi);
   font-size: 16px; font-weight: 700; letter-spacing: .04em;
 }

@@ -69,7 +69,7 @@
 
 <div class="ui screen" id="menu" hidden>
   <div class="corner">
-    <button class="profile" id="openAccount" aria-label="Conta"></button>
+    <button class="profile" id="openAccount" aria-label="Conta"><canvas class="avatar" id="profileAvatar"></canvas><span id="profileName"></span></button>
     <button class="icon-btn" id="openRanking" aria-label="Ranking">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-5M12 20V11M19 20V5"/></svg>
     </button>
@@ -148,6 +148,7 @@
 <div class="ui screen" id="accountScr" hidden>
   <div class="panel">
     <h2>CONTA</h2>
+    <button class="avatar-pick" id="accAvatar"><canvas class="avatar" id="accAvatarImg"></canvas><span>TROCAR FOTO</span></button>
     <div class="group" id="accGuest">
       <button class="row plain" id="accDevice">CONTAS SALVAS NO CELULAR</button>
       <div class="setting">
@@ -172,6 +173,14 @@
     </div>
     <div class="sub" id="accMsg" aria-live="polite"></div>
     <button class="row primary" id="accBack">VOLTAR</button>
+  </div>
+</div>
+
+<div class="ui screen" id="avatarScr" hidden>
+  <div class="panel">
+    <h2>FOTO DE PERFIL</h2>
+    <div class="group" id="avatarGroups"></div>
+    <button class="row primary" id="avatarBack">VOLTAR</button>
   </div>
 </div>
 
