@@ -183,6 +183,9 @@ const PACKS = {
     clear: (t, f) => { tone(sfxOut, f, t, 0.16, 'square', 0.12); tone(sfxOut, f * 1.5, t + 0.03, 0.14, 'triangle', 0.14); hiss(sfxOut, t, 0.12, 6000, 0.1, 'highpass'); },
     over: t => notes([392, 330, 262, 196], 0.13, 0.22, 'square', 0.12, t),
     win: t => { notes([523, 659, 784, 1047], 0.09, 0.25, 'square', 0.12, t); notes([523, 659, 784], 0, 0.6, 'triangle', 0.18, t + 0.4); },
+    // The battle countdown, the same in every pack: a beep on 3, 2 and 1, a higher one to start
+    count: t => tone(sfxOut, 660, t, 0.15, 'square', 0.12),
+    go: t => { tone(sfxOut, 1320, t, 0.35, 'square', 0.12); tone(sfxOut, 660, t, 0.35, 'triangle', 0.18); },
   },
   bit: {
     name: '8-BIT',
@@ -272,7 +275,7 @@ export const SOUND_PACKS = Object.entries(PACKS).filter(([, p]) => !p.hidden).ma
 export function sfx(name, combo = 0) {
   if (!ctx || ctx.state !== 'running') return;
   const pack = PACKS[opts.pack] || PACKS.classic;
-  pack[name](ctx.currentTime, comboHz(combo), combo);
+  (pack[name] || PACKS.classic[name])(ctx.currentTime, comboHz(combo), combo);
 }
 // ---------- music ----------
 // Three soundtracks, picked by the look (main.js calls setSong):

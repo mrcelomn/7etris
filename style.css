@@ -97,6 +97,11 @@ canvas { display: block; }
 .board-wrap { position: relative; border: 1px solid var(--line); border-top: 0; background: var(--panel); }
 /* Battle: garbage on its way, growing up the board's left edge */
 .meter { position: absolute; left: -5px; bottom: 0; width: 3px; height: 0; border-radius: 2px; background: var(--accent); transition: height .15s; }
+/* Battle: the 3-2-1 before the pieces start falling */
+.count {
+  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+  font: 700 calc(var(--c) * 4)/1 var(--font-num); color: var(--fg);
+}
 .foe { margin-top: auto; }
 .brand { display: none; }
 

@@ -12,7 +12,7 @@ import { Duel, newCode } from './duel.js';
 const $ = id => document.getElementById(id);
 
 // Bump on every deploy so the menu shows which version the phone is running
-const VERSION = 57;
+const VERSION = 58;
 
 // Modes with a ranking: games played signed in are checked by the server (see account.js)
 const RANKED = ['20', '40', '100', 'survival'];
@@ -65,7 +65,7 @@ function syncAudio() {
 syncAudio();
 
 // ---------- game state ----------
-let state = 'menu'; // menu | play | pause | done | edit
+let state = 'menu'; // menu | count (a battle's 3-2-1) | play | pause | done | edit
 // '20' | '40' | '100' marathon line goal, 'survival', 'practice', a battle against the AI
 // ('ai-easy' | 'ai-medium' | 'ai-hard'), or 'duel' against a friend online
 let mode = '40';
@@ -113,24 +113,51 @@ function startGame(m, seed) {
   if (foe) $('foeLabel').textContent = mode === 'duel' ? 'AMIGO' : 'IA';
   stepAcc = 0;
   live.start(account.signedIn() && account.session.code);
-  state = 'play';
   show(null);
   stats();
+  if (foe) countDown();
+  else go();
+}
+function go() {
+  state = 'play';
   audio.musicPlay(true);
+}
+
+// Battles open with a 3-2-1 before the pieces start falling
+let countTimer = null;
+function countDown(n = 3) {
+  stopCount();
+  if (!n) { audio.sfx('go'); go(); return; }
+  state = 'count';
+  const el = $('count');
+  el.textContent = n;
+  el.hidden = false;
+  el.animate([{ transform: 'scale(1.6)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], 200);
+  audio.sfx('count');
+  countTimer = setTimeout(() => countDown(n - 1), 800);
+}
+function stopCount() {
+  clearTimeout(countTimer);
+  $('count').hidden = true;
 }
 
 function releaseAll() { if (game) Object.keys(game.held).forEach(k => game.release(k)); }
 
+// Paused during the countdown, the game starts over from 3 when it resumes
+let pausedCount = false;
 function pause() {
-  if (state !== 'play') return;
+  if (state !== 'play' && state !== 'count') return;
+  pausedCount = state === 'count';
+  stopCount();
   state = 'pause';
   releaseAll();
   audio.musicStop();
   show('pauseScr');
 }
 function resume() {
-  state = 'play';
   show(null);
+  if (pausedCount) { countDown(); return; }
+  state = 'play';
   audio.musicPlay(false);
 }
 
@@ -218,6 +245,7 @@ function renderRecords() {
 function openMenu() {
   state = 'menu';
   audio.musicStop();
+  stopCount();
   leaveDuel();
   live.stop();
   game = null; foe = null; ranked = null;
@@ -431,7 +459,8 @@ function openDuel(how, code) {
     over: () => { if (state === 'play' || state === 'pause') game.end(true); },
     closed: () => {
       duel = null;
-      if (mode === 'duel' && (state === 'play' || state === 'pause' || state === 'done')) {
+      if (mode === 'duel' && ['count', 'play', 'pause', 'done'].includes(state)) {
+        stopCount();
         state = 'done'; game.over = true; game.cur = null; audio.musicStop();
         result('CONEXÃO PERDIDA', 'O duelo acabou', 'Seu amigo saiu ou ficou sem internet.');
         $('again').hidden = true;
@@ -613,7 +642,7 @@ function drawBoard() {
     if (t) block(ctx, x * c, (y - HID) * c, c, t, state === 'done' ? 'dead' : 'solid');
   }
   const cur = game.cur;
-  if (!cur) return;
+  if (!cur || state === 'count') return;
   const gy = game.ghostY();
   cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && gy + y >= HID) block(ctx, (cur.x + x) * c, (gy + y - HID) * c, c, cur.t, 'ghost'); }));
   cur.m.forEach((r, y) => r.forEach((v, x) => { if (v && cur.y + y >= HID) block(ctx, (cur.x + x) * c, (cur.y + y - HID) * c, c, cur.t, 'solid'); }));
@@ -696,7 +725,7 @@ function frame(t) {
   }
   stats();
   if (bctx) drawBoard();
-  if (state === 'play' || state === 'pause' || state === 'done') drawSide();
+  if (state !== 'menu' && state !== 'edit') drawSide();
   if (foe && game) drawBattle();
   if (game) live.update(liveState, now);
   requestAnimationFrame(frame);
