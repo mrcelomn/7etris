@@ -35,9 +35,13 @@
   --screen-h: 100dvh;
 }
 /* iOS 26 home-screen apps report every height except lvh short by the status bar, which
-   leaves a dead strip at the bottom (WebKit regression); lvh is the real screen there */
+   leaves a dead strip at the bottom (WebKit regression); lvh is the real screen there.
+   Only on iOS (the only browser with -webkit-touch-callout): on Android, lvh can run past the
+   visible screen and push the pause button out of sight. */
 @media (display-mode: standalone) {
-  :root { --screen-h: 100lvh; }
+  @supports (-webkit-touch-callout: none) {
+    :root { --screen-h: 100lvh; }
+  }
 }
 :root[data-theme="light"] {
   color-scheme: light;
