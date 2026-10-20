@@ -2,7 +2,7 @@
 // open to the server and, only while that page is open (the server says 'watch'), sends what
 // the game looks like a few times a second. Without a connection it simply does nothing.
 
-const SOCKET = 'wss://7etris.7etris-jogo.workers.dev/live';
+const SOCKET = 'wss://7etris.mrcelomn.workers.dev/live';
 const EVERY = 200; // ms between updates
 
 let ws = null, watching = false, lastSent = 0;

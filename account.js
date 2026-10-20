@@ -1,7 +1,7 @@
 // The player's account on the 7etris server (server/worker.js): a name and a secret code.
 // Without one the player is a visitor, whose data stays on this phone and out of the ranking.
 
-const API = 'https://7etris.7etris-jogo.workers.dev';
+const API = 'https://7etris.mrcelomn.workers.dev';
 // { name, code, saved } signed in (saved: kept in this phone's passwords), { guest: true } visitor,
 // absent: not chosen yet
 const KEY = '7etris-account';

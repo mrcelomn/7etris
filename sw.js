@@ -10,7 +10,7 @@ self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('fetch', e => {
   // The account server's answers are live data, never kept
-  if (e.request.method !== 'GET' || e.request.url.startsWith('https://7etris.7etris-jogo.workers.dev')) return;
+  if (e.request.method !== 'GET' || e.request.url.startsWith('https://7etris.mrcelomn.workers.dev')) return;
   const own = new URL(e.request.url).origin === location.origin;
   const network = (own ? fetch(e.request.url, { cache: 'no-cache' }) : fetch(e.request)).then(res => {
     if (res.ok || res.type === 'opaque') {
