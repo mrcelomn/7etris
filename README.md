@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/cover.png" alt="7etris: blocos que caem, feito para o celular">
+<img src="cover.png" alt="7etris: blocos que caem, feito para o celular">
 
 Maratona, sobrevivência, duelos contra a IA e contra amigos, ranking online e 12 skins.
 

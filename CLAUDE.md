@@ -8,7 +8,7 @@ Tetris-style game for phones, played as a home-screen web app. Plain HTML/CSS/JS
 - Keep the code clean: remove whatever a change makes obsolete; no leftover files or test scripts in the repo.
 - Bump `VERSION` in `main.js` on every change to the game, so the player can check the menu ("vN") to confirm the update reached their phone.
 - Never commit anything personal; the repo is public.
-- `README.md` (in Portuguese) is the public face of the repo: update it when a change adds, removes or renames something it describes (modes, controls, skins, install steps). Its screenshots live in `.github/screenshots/`.
+- `README.md` (in Portuguese) is the public face of the repo: update it when a change adds, removes or renames something it describes (modes, controls, skins, install steps). Its screenshots live in `.github/screenshots/`; its banner, `cover.png`, is also the link preview image.
 
 ## Deploying
 
@@ -20,12 +20,13 @@ Tetris-style game for phones, played as a home-screen web app. Plain HTML/CSS/JS
 
 ## Current state
 
-Latest version: v61. Recent changes:
+Latest version: v62. Recent changes:
 
 - v58: every battle (against the AI and online) opens with a 3-2-1 countdown with a beep (`count`/`go` sounds in `audio.js`), also on "play again"; pausing during it restarts it from 3.
 - v59: on Android the pause button fell off the bottom of the screen. The `100lvh` screen height (a fix for iOS 26 home-screen apps) now applies only on iOS (`@supports (-webkit-touch-callout: none)`); Android uses `100dvh`.
 - v60: the Worker's subdomain changed to `7etris.mrcelomn.workers.dev`.
 - v61: no change for the player; the server code moved to the private repo and the public history was rewritten to drop it.
+- v62: link previews (Open Graph tags in `index.html`) show `cover.png`, the same banner the README opens with. It sits at the root because GitHub Pages doesn't publish `.github/`.
 
 Waiting on the player to confirm:
 
