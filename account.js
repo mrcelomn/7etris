@@ -1,4 +1,4 @@
-// The player's account on the 7etris server (server/worker.js): a name and a secret code.
+// The player's account on the 7etris server: a name and a secret code.
 // Without one the player is a visitor, whose data stays on this phone and out of the ranking.
 
 const API = 'https://7etris.mrcelomn.workers.dev';

@@ -1,6 +1,6 @@
 // Profile pictures, drawn instead of stored: a piece on a coloured background. First the seven
-// plain pieces, then one per skin with its piece drawn in that skin. The developer's page
-// (server/dev.html) imports this file from the site too, so both draw them the same way.
+// plain pieces, then one per skin with its piece drawn in that skin. The developer's live
+// page imports this file from the site too, so both draw them the same way.
 import { SHAPES } from './rules.js';
 import { SKINS, drawBlock } from './skins.js';
 

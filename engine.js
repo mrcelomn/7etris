@@ -1,6 +1,6 @@
 // One player's game, with no screen or sound: the pieces, the board and the timing. It only
 // moves forward through press(), release() and step(), so a ranked game can be recorded as that
-// sequence and played again, move for move, by the server to check its result (server/worker.js).
+// sequence and played again, move for move, by the server to check its result.
 import { HID, SHAPES, rotCW, newBoard, spawnX, bag, collides, stamp, clearLines, exchange, solidRowsAt, addSolid } from './rules.js';
 
 export const PREVIEW = 5;

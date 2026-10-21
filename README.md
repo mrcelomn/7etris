@@ -115,7 +115,7 @@ O jogo é **HTML, CSS e JavaScript puros**, sem frameworks e sem etapa de build:
 - **Duelo online** (`duel.js`): os dois celulares conversam **direto um com o outro** por WebRTC. O [PeerJS](https://peerjs.com/) só ajuda a se encontrarem.
 - **Som 100% sintetizado** (`audio.js`): não há nenhum arquivo de áudio. Música e efeitos são gerados na hora com a Web Audio API.
 - **Funciona offline** (`sw.js`): um *service worker* guarda o jogo no celular e busca a versão nova sempre que há internet.
-- **Servidor** (`server/`): um Cloudflare Worker com banco D1 para contas e ranking, publicado automaticamente pelo GitHub Actions.
+- **Servidor**: um Cloudflare Worker com banco D1 para contas e ranking, publicado automaticamente pelo GitHub Actions. O código dele fica num repositório privado.
 
 ### Arquivos
 
@@ -125,13 +125,13 @@ O jogo é **HTML, CSS e JavaScript puros**, sem frameworks e sem etapa de build:
 | `main.js` | Liga tudo: menus, partidas, desenho na tela |
 | `engine.js`, `rules.js` | Regras e motor do jogo (também usados pelo servidor) |
 | `ai.js` | Adversário de IA |
-| `duel.js`, `live.js` | Duelo online |
+| `duel.js` | Duelo online |
+| `live.js` | Partidas ao vivo (veja Privacidade) |
 | `pad.js` | Direcional e botões na tela |
 | `skins.js`, `avatars.js` | Skins das peças e fotos de perfil |
 | `audio.js` | Música e efeitos |
 | `account.js` | Conta e ranking |
 | `sw.js`, `manifest.webmanifest` | App instalável e offline |
-| `server/` | Servidor de contas e ranking (Cloudflare) |
 
 ### Rodar no computador
 

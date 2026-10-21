@@ -1,4 +1,4 @@
-// Live view for the developer's page (server/dev.html): during a game the phone keeps a socket
+// Live view for the developer's page: during a game the phone keeps a socket
 // open to the server and, only while that page is open (the server says 'watch'), sends what
 // the game looks like a few times a second. Without a connection it simply does nothing.
 

@@ -1,16 +1,23 @@
-# Deploys the account and ranking server (server/) to Cloudflare whenever it, or the game rules
-# it replays ranked games with, change on main. Needs the CLOUDFLARE_API_TOKEN repository secret.
+# Deploys the account and ranking server to Cloudflare. Its code lives in the private repo
+# mrcelomn/7etris-server, checked out as server/ next to the game rules it replays ranked games
+# with. Runs when those rules change on main, or by hand after a change to the server.
+# Needs the CLOUDFLARE_API_TOKEN and SERVER_REPO_TOKEN (read access to the server repo) secrets.
 name: server
 on:
   push:
     branches: [main]
-    paths: [server/**, engine.js, rules.js, .github/workflows/server.yml]
+    paths: [engine.js, rules.js, .github/workflows/server.yml]
   workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: mrcelomn/7etris-server
+          token: ${{ secrets.SERVER_REPO_TOKEN }}
+          path: server
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

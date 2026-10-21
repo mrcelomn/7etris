@@ -13,17 +13,19 @@ Tetris-style game for phones, played as a home-screen web app. Plain HTML/CSS/JS
 ## Deploying
 
 - Game: every push to `main` is published by GitHub Pages at https://mrcelomn.github.io/7etris/.
-- Server (`server/`, Cloudflare Worker + D1 database + live Durable Object): `.github/workflows/server.yml` deploys it on pushes that touch `server/`, `engine.js` or `rules.js` (ranked games are replayed on the server with the same rules). It uses the `CLOUDFLARE_API_TOKEN` repository secret.
-- The server lives at `https://7etris.mrcelomn.workers.dev`. That address appears in `account.js`, `live.js`, `sw.js` and `server/dev.html`; change all four together if it moves again.
+- Server (Cloudflare Worker + D1 database + live Durable Object): its code lives in the private repo `mrcelomn/7etris-server`, kept out of this public one along with its Cloudflare IDs and the developer page. To work on it, attach it with add_repo, clone it next to this repo (never inside it) and follow its CLAUDE.md. `.github/workflows/server.yml` checks it out as `server/` and deploys it with the `CLOUDFLARE_API_TOKEN` secret; it runs on pushes that touch `engine.js` or `rules.js` (ranked games are replayed on the server with the same rules) and by hand after a server change.
+- That checkout uses the `SERVER_REPO_TOKEN` secret, a token that **expires around 2026-12-20**. When it's close, remind the user to generate a new one (fine-grained, `7etris-server` only, Contents read-only) and replace the secret here; once it expires, server deploys fail but the running server keeps working.
+- The server lives at `https://7etris.mrcelomn.workers.dev`. That address appears in `account.js`, `live.js`, `sw.js` and in the server repo; change them all together if it moves again.
 - Cloud sessions work straight on `main`: there's no local wrangler login, so the server is only updated by pushing. The cloud proxy blocks `*.workers.dev` and `github.io`, so neither the server nor the live site can be checked from a session; use `gh run list` to confirm a deploy succeeded.
 
 ## Current state
 
-Latest version: v60. Recent changes:
+Latest version: v61. Recent changes:
 
 - v58: every battle (against the AI and online) opens with a 3-2-1 countdown with a beep (`count`/`go` sounds in `audio.js`), also on "play again"; pausing during it restarts it from 3.
 - v59: on Android the pause button fell off the bottom of the screen. The `100lvh` screen height (a fix for iOS 26 home-screen apps) now applies only on iOS (`@supports (-webkit-touch-callout: none)`); Android uses `100dvh`.
 - v60: the Worker's subdomain changed to `7etris.mrcelomn.workers.dev`.
+- v61: no change for the player; the server code moved to the private repo and the public history was rewritten to drop it.
 
 Waiting on the player to confirm:
 
@@ -32,4 +34,4 @@ Waiting on the player to confirm:
 
 ## The database is live
 
-The D1 database `7etris` holds real players' accounts and records. Never run blanket deletes on it. When testing, create a clearly named test account and delete only that account's rows afterwards (check `SELECT id, name FROM users` first). The developer page (`/dev`) is open only to the account whose id is `ADMIN_ID` in `server/wrangler.jsonc`.
+The D1 database `7etris` holds real players' accounts and records; the server repo's CLAUDE.md has the rules for touching it.
