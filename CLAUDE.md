@@ -8,6 +8,7 @@ Tetris-style game for phones, played as a home-screen web app. Plain HTML/CSS/JS
 - Keep the code clean: remove whatever a change makes obsolete; no leftover files or test scripts in the repo.
 - Bump `VERSION` in `main.js` on every change to the game, so the player can check the menu ("vN") to confirm the update reached their phone.
 - Never commit anything personal; the repo is public.
+- `README.md` (in Portuguese) is the public face of the repo: update it when a change adds, removes or renames something it describes (modes, controls, skins, install steps). Its screenshots live in `.github/screenshots/`.
 
 ## Deploying
 
