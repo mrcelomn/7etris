@@ -1,10 +1,8 @@
 <div align="center">
 
-<img src="icon-512.png" width="112" alt="Ícone do 7etris">
+<img src=".github/cover.png" alt="7etris: blocos que caem, feito para o celular">
 
-# 7etris
-
-**Blocos que caem, feito para o celular.** Maratona, sobrevivência, duelos contra a IA e contra amigos, ranking online e 12 skins.
+Maratona, sobrevivência, duelos contra a IA e contra amigos, ranking online e 12 skins.
 
 [![Jogar agora](https://img.shields.io/badge/▶_JOGAR_AGORA-a6245a?style=for-the-badge)](https://mrcelomn.github.io/7etris/)
 
@@ -95,6 +93,15 @@ Num computador com teclado: setas para mover, **↑** ou **espaço** para soltar
 - **Ranking online** nos modos Maratona e Sobrevivência, com foto de perfil.
 - **Joga offline**: partidas do ranking feitas sem internet são enviadas quando a conexão volta.
 - **Seus ajustes e vitórias vão junto** quando você entra na conta em outro celular.
+
+---
+
+## 🔒 Privacidade
+
+- **Conta**: o servidor guarda só o seu nome, a foto de perfil escolhida, seus recordes, vitórias e ajustes. Não há e-mail, telefone nem senha; o código da conta é guardado embaralhado (*hash*), nunca como você o digita.
+- **Partidas ao vivo**: com internet, o desenvolvedor pode **acompanhar as partidas enquanto acontecem**, numa página só dele. Ele vê o tabuleiro, as peças, o modo e o tempo de jogo, junto com o nome da conta e a foto (ou "Visitante", sem conta). Isso serve para entender como o jogo é jogado e encontrar problemas. **Nada disso é gravado**: o celular só envia a partida enquanto essa página está aberta, e ela some quando a partida acaba.
+- **Duelo online**: os dois celulares jogam conectados direto um ao outro. O servidor público do PeerJS só ajuda os dois a se encontrarem pelo código da sala.
+- Sem anúncios, sem ferramentas de análise e sem venda de dados.
 
 ---
 
